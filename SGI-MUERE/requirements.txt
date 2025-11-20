@@ -4,3 +4,4 @@ python-dotenv
 bcrypt
 pandas
 plotly
+mysql-connector-python
