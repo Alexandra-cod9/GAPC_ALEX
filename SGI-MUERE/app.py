@@ -46,10 +46,38 @@ st.markdown("""
     .welcome-message {
         background: linear-gradient(135deg, #6f42c1, #8b5cf6);
         color: white;
-        padding: 1rem;
-        border-radius: 0.5rem;
+        padding: 1.5rem;
+        border-radius: 1rem;
         text-align: center;
         margin: 1rem 0;
+    }
+    .saldo-card {
+        background: linear-gradient(135deg, #10b981, #34d399);
+        color: white;
+        padding: 2rem;
+        border-radius: 1rem;
+        text-align: center;
+        margin: 1rem 0;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .module-button {
+        background: white;
+        color: #6f42c1;
+        border: 2px solid #6f42c1;
+        padding: 1.5rem;
+        border-radius: 1rem;
+        margin: 0.5rem;
+        font-weight: bold;
+        font-size: 1.1rem;
+        width: 100%;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    .module-button:hover {
+        background: #6f42c1;
+        color: white;
+        transform: translateY(-2px);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -58,14 +86,14 @@ st.markdown("""
 def obtener_conexion():
     try:
         conexion = pymysql.connect(
-            host='bhzcn4gxgbe5tcxihqd1-mysql.services.clever-cloud.com',  # ⬅️ HOST CLEVER CLOUD
-            user='usv5pnvafxbrw5hs',                                      # ⬅️ USUARIO CLEVER CLOUD
-            password='WiOSztB38WxsKuXjnQgT',                             # ⬅️ PASSWORD CLEVER CLOUD
-            database='bhzcn4gxgbe5tcxihqd1',                             # ⬅️ DATABASE CLEVER CLOUD
-            port=3306,                                                   # ⬅️ PUERTO CLEVER CLOUD
+            host='bhzcn4gxgbe5tcxihqd1-mysql.services.clever-cloud.com',
+            user='usv5pnvafxbrw5hs',
+            password='WiOSztB38WxsKuXjnQgT',
+            database='bhzcn4gxgbe5tcxihqd1',
+            port=3306,
             charset='utf8mb4',
             cursorclass=pymysql.cursors.DictCursor,
-            connect_timeout=10  # Timeout para evitar esperas largas
+            connect_timeout=10
         )
         return conexion
     except Exception as e:
@@ -122,26 +150,22 @@ def obtener_estadisticas_reales(id_grupo=None):
             resultado = cursor.fetchone()
             estadisticas['reuniones_mes'] = resultado['total'] if resultado else 0
             
-            # Total de aportes este mes
+            # Total de aportes (SALDO ACTUAL)
             if id_grupo:
                 cursor.execute("""
                     SELECT COALESCE(SUM(a.monto), 0) as total 
                     FROM aporte a
                     JOIN reunion r ON a.id_reunion = r.id_reunion
-                    WHERE r.id_gruppo = %s 
-                    AND MONTH(r.fecha) = MONTH(CURDATE()) 
-                    AND YEAR(r.fecha) = YEAR(CURDATE())
+                    WHERE r.id_gruppo = %s
                 """, (id_grupo,))
             else:
                 cursor.execute("""
                     SELECT COALESCE(SUM(a.monto), 0) as total 
                     FROM aporte a
                     JOIN reunion r ON a.id_reunion = r.id_reunion
-                    WHERE MONTH(r.fecha) = MONTH(CURDATE()) 
-                    AND YEAR(r.fecha) = YEAR(CURDATE())
                 """)
             resultado = cursor.fetchone()
-            estadisticas['total_aportes'] = float(resultado['total']) if resultado and resultado['total'] else 0.0
+            estadisticas['saldo_actual'] = float(resultado['total']) if resultado and resultado['total'] else 0.0
             
             cursor.close()
             conexion.close()
@@ -153,7 +177,7 @@ def obtener_estadisticas_reales(id_grupo=None):
             'total_miembros': 0,
             'prestamos_activos': 0, 
             'reuniones_mes': 0,
-            'total_aportes': 0.0
+            'saldo_actual': 0.0
         }
 
 # FUNCIÓN PARA VERIFICAR LOGIN REAL
@@ -164,7 +188,6 @@ def verificar_login_real(correo, contrasena):
         if conexion:
             cursor = conexion.cursor()
             
-            # Buscar usuario por correo
             cursor.execute("""
                 SELECT m.id_miembro, m.nombre, m.correo, m.contrasena, r.tipo_rol, m.id_grupo
                 FROM miembrogapc m
@@ -177,7 +200,6 @@ def verificar_login_real(correo, contrasena):
             conexion.close()
             
             if usuario:
-                # Verificar contraseña
                 if usuario['contrasena'] == contrasena:
                     return {
                         'id': usuario['id_miembro'],
@@ -193,9 +215,9 @@ def verificar_login_real(correo, contrasena):
         st.error(f"Error al verificar login: {e}")
         return None
 
-# FUNCIÓN DE LOGIN MEJORADA
+# FUNCIÓN DE LOGIN
 def mostrar_formulario_login():
-    """Muestra el formulario de login con opción de modo prueba/real"""
+    """Muestra el formulario de login"""
     
     st.markdown('<div class="main-header">🏠 Sistema GAPC</div>', unsafe_allow_html=True)
     
@@ -208,7 +230,6 @@ def mostrar_formulario_login():
         else:
             st.error("❌ No se pudo conectar a la base de datos")
     
-    # Selector de modo
     modo = st.radio(
         "Selecciona modo de acceso:",
         ["🧪 Modo Prueba", "🔐 Modo Real"],
@@ -235,7 +256,6 @@ def mostrar_formulario_login():
             if correo and contrasena:
                 with st.spinner("Verificando credenciales..."):
                     if modo == "🔐 Modo Real":
-                        # Login real contra base de datos
                         usuario = verificar_login_real(correo, contrasena)
                         if usuario:
                             st.session_state.usuario = usuario
@@ -244,7 +264,6 @@ def mostrar_formulario_login():
                         else:
                             st.error("❌ Credenciales incorrectas o usuario no existe")
                     else:
-                        # Modo prueba - acepta cualquier cosa
                         st.session_state.usuario = {
                             'nombre': correo.title(),
                             'tipo_rol': 'Usuario',
@@ -255,41 +274,19 @@ def mostrar_formulario_login():
             else:
                 st.warning("⚠️ Por favor completa todos los campos")
     
-    # Información según el modo
-    with st.expander("💡 Información de acceso"):
-        if modo == "🧪 Modo Prueba":
-            st.write("""
-            **Para desarrollo y pruebas:**
-            - 👤 Cualquier nombre de usuario
-            - 🔒 Cualquier contraseña
-            - ✅ Acceso inmediato
-            """)
-        else:
-            st.write("""
-            **Modo de producción:**
-            - 📧 Correo registrado en la base de datos
-            - 🔒 Contraseña correcta
-            - 🔐 Verificación contra usuarios reales
-            - 🌐 **Base de datos:** Clever Cloud MySQL
-            """)
-    
     st.markdown("</div>", unsafe_allow_html=True)
 
-# FUNCIÓN DE DASHBOARD CON MÉTRICAS REALES
+# FUNCIÓN DE DASHBOARD CON NUEVO DISEÑO
 def mostrar_dashboard_principal():
-    """Muestra el dashboard principal con datos reales"""
+    """Muestra el dashboard principal con el nuevo diseño"""
     
     usuario = st.session_state.usuario
     
-    # Header con mensaje de bienvenida
-    st.markdown(f'''
-    <div class="welcome-message">
-        <h2>👋 ¡Hola, {usuario['nombre']}!</h2>
-        <p>Bienvenido/a al Sistema de Gestión GAPC</p>
-    </div>
-    ''', unsafe_allow_html=True)
+    # Obtener estadísticas reales
+    id_grupo_usuario = usuario.get('id_grupo')
+    estadisticas = obtener_estadisticas_reales(id_grupo_usuario)
     
-    # Sidebar
+    # SIDEBAR
     with st.sidebar:
         st.image("https://via.placeholder.com/150x50/6f42c1/white?text=GAPC", width=150)
         st.markdown("---")
@@ -297,7 +294,6 @@ def mostrar_dashboard_principal():
         st.write(f"**🎭 Rol:** {usuario['tipo_rol']}")
         st.write(f"**🏢 Grupo:** #{usuario.get('id_grupo', 1)}")
         
-        # Mostrar modo actual
         if 'correo' in usuario:
             st.write("**🔐 Modo:** Real")
         else:
@@ -312,93 +308,88 @@ def mostrar_dashboard_principal():
             st.session_state.usuario = None
             st.rerun()
     
-    # MÉTRICAS PRINCIPALES (REALES)
-    st.subheader("📊 Resumen General - Datos en Tiempo Real")
+    # CONTENIDO PRINCIPAL
+    # Header de bienvenida
+    st.markdown(f'''
+    <div class="welcome-message">
+        <h1>¡Bienvenido/a, {usuario['nombre']}!</h1>
+        <h3>{usuario['tipo_rol']} - Grupo #{usuario.get('id_grupo', 1)}</h3>
+    </div>
+    ''', unsafe_allow_html=True)
     
-    # Obtener estadísticas reales
-    id_grupo_usuario = usuario.get('id_grupo')
-    estadisticas = obtener_estadisticas_reales(id_grupo_usuario)
+    # SALDO ACTUAL (ÚNICA MÉTRICA)
+    st.markdown("## 💰 Resumen Financiero")
     
+    st.markdown(f'''
+    <div class="saldo-card">
+        <h2>SALDO ACTUAL DEL GRUPO</h2>
+        <h1>₡{estadisticas['saldo_actual']:,.2f}</h1>
+        <p>Total acumulado de aportes</p>
+    </div>
+    ''', unsafe_allow_html=True)
+    
+    # BOTONES DE MÓDULOS
+    st.markdown("## 🚀 Módulos del Sistema")
+    
+    # Primera fila de botones
     col1, col2, col3, col4 = st.columns(4)
-
+    
     with col1:
-        st.metric(
-            "👥 Miembros", 
-            estadisticas['total_miembros'],
-            help="Total de miembros en el sistema"
-        )
-
+        if st.button("📋 **Información de Grupo**", use_container_width=True, key="grupo"):
+            st.info("🔧 Módulo Información de Grupo - En desarrollo")
+    
     with col2:
-        st.metric(
-            "💰 Préstamos Activos", 
-            estadisticas['prestamos_activos'],
-            help="Préstamos actualmente aprobados"
-        )
-
+        if st.button("👥 **Miembros**", use_container_width=True, key="miembros"):
+            st.info("🔧 Módulo Miembros - En desarrollo")
+    
     with col3:
-        st.metric(
-            "📅 Reuniones Mes", 
-            estadisticas['reuniones_mes'],
-            help="Reuniones realizadas este mes"
-        )
-
+        if st.button("📅 **Reunión**", use_container_width=True, key="reunion"):
+            st.info("🔧 Módulo Reunión - En desarrollo")
+    
     with col4:
-        st.metric(
-            "💵 Aportes Mes", 
-            f"₡{estadisticas['total_aportes']:,.2f}",
-            help="Total de aportes este mes"
-        )
+        if st.button("💰 **Aportes**", use_container_width=True, key="aportes"):
+            st.info("🔧 Módulo Aportes - En desarrollo")
     
-    # Módulos del sistema
-    st.subheader("🚀 Módulos del Sistema")
-    
-    col1, col2 = st.columns(2)
+    # Segunda fila de botones
+    col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.markdown("### 👥 Gestión de Miembros")
-        if st.button("📋 Lista de Miembros", use_container_width=True):
-            st.info("🔧 Módulo en desarrollo - Próximamente")
-        if st.button("➕ Agregar Miembro", use_container_width=True):
-            st.info("🔧 Módulo en desarrollo - Próximamente")
-        
-        st.markdown("### 📅 Reuniones")
-        if st.button("🗓️ Calendario", use_container_width=True):
-            st.info("🔧 Módulo en desarrollo - Próximamente")
-        if st.button("✅ Asistencia", use_container_width=True):
-            st.info("🔧 Módulo en desarrollo - Próximamente")
+        if st.button("🏦 **Préstamos**", use_container_width=True, key="prestamos"):
+            st.info("🔧 Módulo Préstamos - En desarrollo")
     
     with col2:
-        st.markdown("### 💰 Gestión Financiera")
-        if st.button("🏦 Préstamos", use_container_width=True):
-            st.info("🔧 Módulo en desarrollo - Próximamente")
-        if st.button("💰 Aportes", use_container_width=True):
-            st.info("🔧 Módulo en desarrollo - Próximamente")
-        
-        st.markdown("### 📊 Reportes")
-        if st.button("📈 Dashboard", use_container_width=True):
-            st.info("🔧 Módulo en desarrollo - Próximamente")
-        if st.button("📋 Generales", use_container_width=True):
-            st.info("🔧 Módulo en desarrollo - Próximamente")
+        if st.button("⚖️ **Multa**", use_container_width=True, key="multa"):
+            st.info("🔧 Módulo Multa - En desarrollo")
     
-    # Información adicional
+    with col3:
+        if st.button("📊 **Reporte**", use_container_width=True, key="reporte"):
+            st.info("🔧 Módulo Reporte - En desarrollo")
+    
+    with col4:
+        if st.button("🔄 **Cierre**", use_container_width=True, key="cierre"):
+            st.info("🔧 Módulo Cierre - En desarrollo")
+    
+    # Último botón centrado
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("⚙️ **Configuración**", use_container_width=True, key="configuracion"):
+            st.info("🔧 Módulo Configuración - En desarrollo")
+    
+    # Información del sistema
     st.markdown("---")
-    st.subheader("ℹ️ Información del Sistema")
+    st.markdown(f"*Última actualización: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}*")
     
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.info(f"**Última actualización:** {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
-        conexion_status = "Conectada ✅ (Clever Cloud)" if obtener_conexion() else "Desconectada ❌"
-        st.info(f"**Base de datos:** {conexion_status}")
-    
-    with col2:
-        st.info("**Sistema GAPC v1.0**")
-        st.info("**Estado:** 🟢 En funcionamiento")
+    # Información de conexión (oculta pero disponible)
+    with st.expander("🔧 Información Técnica"):
+        col1, col2 = st.columns(2)
+        with col1:
+            conexion_status = "Conectada ✅ (Clever Cloud)" if obtener_conexion() else "Desconectada ❌"
+            st.info(f"**Base de datos:** {conexion_status}")
+        with col2:
+            st.info("**Sistema GAPC v1.0**")
 
 # APLICACIÓN PRINCIPAL
 def main():
-    """Función principal de la aplicación"""
-    
     if not st.session_state.usuario:
         mostrar_formulario_login()
     else:
