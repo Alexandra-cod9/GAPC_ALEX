@@ -18,73 +18,73 @@ if 'usuario' not in st.session_state:
 if 'id_grupo' not in st.session_state:
     st.session_state.id_grupo = None
 
-# CSS personalizado - MODIFICADO con nuevo verde y paneles más compactos
+# CSS personalizado - MÁS COMPACTO
 st.markdown("""
 <style>
     .main-header {
         color: #6f42c1;
         text-align: center;
-        margin-bottom: 1rem;
-        font-size: 2rem;
+        margin-bottom: 0.5rem;
+        font-size: 1.5rem;
     }
     .stButton button {
         background-color: #6f42c1;
         color: white;
         border: none;
-        padding: 0.4rem 0.8rem;
-        border-radius: 0.4rem;
+        padding: 0.3rem 0.6rem;
+        border-radius: 0.3rem;
         font-weight: bold;
-        font-size: 0.9rem;
+        font-size: 0.8rem;
     }
     .login-container {
-        max-width: 350px;
-        margin: 1.5rem auto;
-        padding: 1.5rem;
-        border: 2px solid #e0d1f9;
-        border-radius: 0.8rem;
+        max-width: 300px;
+        margin: 1rem auto;
+        padding: 1rem;
+        border: 1px solid #e0d1f9;
+        border-radius: 0.5rem;
         background: #f8fafc;
     }
     .welcome-message {
         background: linear-gradient(135deg, #6f42c1, #8b5cf6);
         color: white;
-        padding: 1rem;
-        border-radius: 0.8rem;
+        padding: 0.8rem;
+        border-radius: 0.5rem;
         text-align: center;
-        margin: 0.8rem 0;
-        font-size: 0.9rem;
+        margin: 0.5rem 0;
+        font-size: 0.8rem;
     }
     .saldo-card {
-        background: linear-gradient(135deg, #059669, #10b981);  /* VERDE MODIFICADO */
+        background: linear-gradient(135deg, #059669, #10b981);
         color: white;
-        padding: 1.2rem;
-        border-radius: 0.8rem;
+        padding: 1rem;
+        border-radius: 0.5rem;
         text-align: center;
-        margin: 0.8rem 0;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        margin: 0.5rem 0;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
     .metric-card {
         background: white;
         border: 1px solid #e2e8f0;
-        border-radius: 0.6rem;
-        padding: 0.8rem;
+        border-radius: 0.4rem;
+        padding: 0.6rem;
         text-align: center;
-        margin: 0.3rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        margin: 0.2rem;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
     }
     .module-button {
         background: white;
         color: #6f42c1;
-        border: 2px solid #6f42c1;
-        padding: 0.8rem;
-        border-radius: 0.6rem;
-        margin: 0.3rem;
+        border: 1px solid #6f42c1;
+        padding: 0.6rem;
+        border-radius: 0.4rem;
+        margin: 0.2rem;
         font-weight: bold;
-        font-size: 0.85rem;
+        font-size: 0.75rem;
         width: 100%;
         text-align: center;
         cursor: pointer;
         transition: all 0.2s ease;
-        height: 80px;
+        height: 60px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -94,16 +94,12 @@ st.markdown("""
         color: white;
         transform: translateY(-1px);
     }
-    .notification-panel {
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 0.6rem;
-        padding: 0.8rem;
-        margin: 0.5rem 0;
-        font-size: 0.8rem;
-    }
     .sidebar-content {
-        font-size: 0.85rem;
+        font-size: 0.75rem;
+    }
+    .compact-text {
+        font-size: 0.8rem;
+        margin: 0.2rem 0;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -266,7 +262,7 @@ def mostrar_formulario_login():
         <div class="login-container">
     """, unsafe_allow_html=True)
     
-    st.subheader("🔐 Iniciar Sesión")
+    st.markdown('<p class="compact-text"><strong>🔐 Iniciar Sesión</strong></p>', unsafe_allow_html=True)
     
     with st.form("login_form"):
         if modo == "🔐 Modo Real":
@@ -302,9 +298,9 @@ def mostrar_formulario_login():
     
     st.markdown("</div>", unsafe_allow_html=True)
 
-# FUNCIÓN DE DASHBOARD CON NUEVO DISEÑO COMPACTO
+# FUNCIÓN DE DASHBOARD MÁS COMPACTO
 def mostrar_dashboard_principal():
-    """Muestra el dashboard principal con el nuevo diseño compacto"""
+    """Muestra el dashboard principal más compacto"""
     
     usuario = st.session_state.usuario
     
@@ -312,10 +308,10 @@ def mostrar_dashboard_principal():
     id_grupo_usuario = usuario.get('id_grupo')
     estadisticas = obtener_estadisticas_reales(id_grupo_usuario)
     
-    # SIDEBAR COMPACTO
+    # SIDEBAR MÁS COMPACTO
     with st.sidebar:
         st.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
-        st.image("https://via.placeholder.com/120x40/6f42c1/white?text=GAPC", width=120)
+        st.image("https://via.placeholder.com/100x30/6f42c1/white?text=GAPC", width=100)
         st.markdown("---")
         st.write(f"**👤 {usuario['nombre']}**")
         st.write(f"**🎭 {usuario['tipo_rol']}**")
@@ -338,90 +334,90 @@ def mostrar_dashboard_principal():
                 st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
     
-    # CONTENIDO PRINCIPAL COMPACTO
+    # CONTENIDO PRINCIPAL MÁS COMPACTO
     # Header de bienvenida más pequeño
     st.markdown(f'''
     <div class="welcome-message">
-        <h3>¡Bienvenido/a, {usuario['nombre']}!</h3>
+        <h4>¡Bienvenido/a, {usuario['nombre']}!</h4>
         <p>{usuario['tipo_rol']} - Grupo #{usuario.get('id_grupo', 1)}</p>
     </div>
     ''', unsafe_allow_html=True)
     
-    # SALDO ACTUAL (ÚNICA MÉTRICA) - MÁS COMPACTO
-    st.markdown("## 💰 Resumen Financiero")
+    # SALDO ACTUAL - MÁS COMPACTO
+    st.markdown("### 💰 Resumen Financiero")
     
     st.markdown(f'''
     <div class="saldo-card">
-        <h3>SALDO ACTUAL DEL GRUPO</h3>
-        <h2>₡{estadisticas['saldo_actual']:,.2f}</h2>
+        <h4>SALDO ACTUAL DEL GRUPO</h4>
+        <h3>${estadisticas['saldo_actual']:,.2f}</h3>
         <p>Total acumulado de aportes</p>
     </div>
     ''', unsafe_allow_html=True)
     
-    # MÉTRICAS RÁPIDAS EN FILA COMPACTA
-    st.markdown("## 📊 Estadísticas Rápidas")
+    # MÉTRICAS RÁPIDAS EN FILA MÁS COMPACTA
+    st.markdown("### 📊 Estadísticas Rápidas")
     
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
         st.markdown(f'''
         <div class="metric-card">
-            <h4>👥 MIEMBROS</h4>
-            <h3>{estadisticas['total_miembros']}</h3>
+            <p><strong>👥 MIEMBROS</strong></p>
+            <h4>{estadisticas['total_miembros']}</h4>
         </div>
         ''', unsafe_allow_html=True)
     
     with col2:
         st.markdown(f'''
         <div class="metric-card">
-            <h4>💳 PRÉSTAMOS</h4>
-            <h3>{estadisticas['prestamos_activos']}</h3>
+            <p><strong>💳 PRÉSTAMOS</strong></p>
+            <h4>{estadisticas['prestamos_activos']}</h4>
         </div>
         ''', unsafe_allow_html=True)
     
     with col3:
         st.markdown(f'''
         <div class="metric-card">
-            <h4>📅 REUNIONES</h4>
-            <h3>{estadisticas['reuniones_mes']}</h3>
+            <p><strong>📅 REUNIONES</strong></p>
+            <h4>{estadisticas['reuniones_mes']}</h4>
         </div>
         ''', unsafe_allow_html=True)
     
     with col4:
         st.markdown(f'''
         <div class="metric-card">
-            <h4>📈 ASISTENCIA</h4>
-            <h3>92%</h3>
+            <p><strong>📈 ASISTENCIA</strong></p>
+            <h4>92%</h4>
         </div>
         ''', unsafe_allow_html=True)
     
     # BOTONES DE MÓDULOS MÁS COMPACTOS
-    st.markdown("## 🚀 Módulos del Sistema")
+    st.markdown("### 🚀 Módulos del Sistema")
     
     # Primera fila de botones compactos
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        if st.button("👥 **Miembros**\nGestión de miembros", use_container_width=True, key="miembros"):
+        if st.button("👥 **Miembros**\nGestión", use_container_width=True, key="miembros"):
             st.info("🔧 Módulo Miembros - En desarrollo")
     
     with col2:
-        if st.button("📅 **Reuniones**\nCalendario y registro", use_container_width=True, key="reuniones"):
+        if st.button("📅 **Reuniones**\nCalendario", use_container_width=True, key="reuniones"):
             st.info("🔧 Módulo Reuniones - En desarrollo")
     
     with col3:
-        if st.button("💰 **Aportes**\nRegistro de ahorros", use_container_width=True, key="aportes"):
+        if st.button("💰 **Aportes**\nAhorros", use_container_width=True, key="aportes"):
             st.info("🔧 Módulo Aportes - En desarrollo")
     
     with col4:
-        if st.button("💳 **Préstamos**\nGestionar préstamos", use_container_width=True, key="prestamos"):
+        if st.button("💳 **Préstamos**\nGestionar", use_container_width=True, key="prestamos"):
             st.info("🔧 Módulo Préstamos - En desarrollo")
     
     # Segunda fila de botones compactos
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        if st.button("⚠️ **Multas**\nControl de sanciones", use_container_width=True, key="multas"):
+        if st.button("⚠️ **Multas**\nSanciones", use_container_width=True, key="multas"):
             st.info("🔧 Módulo Multas - En desarrollo")
     
     with col2:
@@ -429,41 +425,16 @@ def mostrar_dashboard_principal():
             st.info("🔧 Módulo Reportes - En desarrollo")
     
     with col3:
-        if st.button("🔄 **Cierre**\nCierre de período", use_container_width=True, key="cierre"):
+        if st.button("🔄 **Cierre**\nPeríodo", use_container_width=True, key="cierre"):
             st.info("🔧 Módulo Cierre - En desarrollo")
     
     with col4:
-        if st.button("⚙️ **Configuración**\nAjustes del grupo", use_container_width=True, key="configuracion"):
+        if st.button("⚙️ **Configuración**\nAjustes", use_container_width=True, key="configuracion"):
             st.info("🔧 Módulo Configuración - En desarrollo")
     
-    # NOTIFICACIONES Y ALERTAS COMPACTAS
-    st.markdown("## 🔔 Notificaciones y Alertas")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown('''
-        <div class="notification-panel">
-            <h4>⚠️ Alertas Activas</h4>
-            <p>• Préstamo próximo a vencer: Ana García ($500)</p>
-            <p>• 🚨 Préstamo VENCIDO: Rosa Martínez ($750)</p>
-            <p>• 3 Multas Pendientes: $45.00</p>
-        </div>
-        ''', unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown('''
-        <div class="notification-panel">
-            <h4>📅 Próximos Eventos</h4>
-            <p>• Próxima Reunión: 22/11/2024 - 14:00</p>
-            <p>• Vencimiento préstamos: 25/11/2024</p>
-            <p>• Cierre de ciclo: 30/11/2024</p>
-        </div>
-        ''', unsafe_allow_html=True)
-    
-    # Información del sistema compacta
+    # Información del sistema más compacta
     st.markdown("---")
-    st.markdown(f"*Última actualización: {datetime.now().strftime('%d/%m/%Y %H:%M')}*")
+    st.markdown(f'<p class="compact-text">*Última actualización: {datetime.now().strftime("%d/%m/%Y %H:%M")}*</p>', unsafe_allow_html=True)
     
     # Información de conexión (oculta pero disponible)
     with st.expander("🔧 Información Técnica"):
