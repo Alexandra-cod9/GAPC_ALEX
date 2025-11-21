@@ -454,3 +454,61 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# En app.py, modifica la sección de botones del dashboard:
+
+# BOTONES DE MÓDULOS MÁS COMPACTOS
+st.markdown("### 🚀 Módulos del Sistema")
+
+# Primera fila de botones compactos
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    if st.button("👥 **Miembros**\nGestión", use_container_width=True, key="miembros"):
+        st.session_state.pagina_actual = "miembros"
+        st.rerun()
+
+with col2:
+    if st.button("📅 **Reuniones**\nCalendario", use_container_width=True, key="reuniones"):
+        st.session_state.pagina_actual = "reuniones"
+        st.rerun()
+
+with col3:
+    if st.button("💰 **Aportes**\nAhorros", use_container_width=True, key="aportes"):
+        st.session_state.pagina_actual = "aportes"
+        st.rerun()
+
+with col4:
+    if st.button("💳 **Préstamos**\nGestionar", use_container_width=True, key="prestamos"):
+        st.session_state.pagina_actual = "prestamos"
+        st.rerun()
+
+# Segunda fila de botones compactos
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    if st.button("⚠️ **Multas**\nSanciones", use_container_width=True, key="multas"):
+        st.session_state.pagina_actual = "multas"
+        st.rerun()
+
+with col2:
+    if st.button("📊 **Reportes**\nEstadísticas", use_container_width=True, key="reportes"):
+        st.session_state.pagina_actual = "reportes"
+        st.rerun()
+
+with col3:
+    if st.button("🔄 **Cierre**\nPeríodo", use_container_width=True, key="cierre"):
+        st.session_state.pagina_actual = "cierre"
+        st.rerun()
+
+with col4:
+    if st.button("⚙️ **Configuración**\nAjustes", use_container_width=True, key="configuracion"):
+        st.session_state.pagina_actual = "configuracion"
+        st.rerun()
+        # Inicializar session state
+if 'usuario' not in st.session_state:
+    st.session_state.usuario = None
+if 'id_grupo' not in st.session_state:
+    st.session_state.id_grupo = None
+if 'pagina_actual' not in st.session_state:
+    st.session_state.pagina_actual = "dashboard"
