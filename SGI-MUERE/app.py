@@ -1,807 +1,485 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard GAPC - Grupo de Ahorro</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        :root {
-            --primary: #6f42c1;
-            --primary-dark: #3d1f6b;
-            --secondary: #28a745; /* Verde más suave */
-            --light: #f8f9fa;
-            --dark: #343a40;
-            --gray: #6c757d;
-            --success: #28a745;
-            --warning: #ffc107;
-            --danger: #dc3545;
-            --info: #17a2b8;
-            --border-radius: 8px;
-            --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            --transition: all 0.3s ease;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        body {
-            background-color: #f5f7fb;
-            color: var(--dark);
-            line-height: 1.6;
-        }
-
-        .container {
-            display: flex;
-            min-height: 100vh;
-        }
-
-        /* Sidebar */
-        .sidebar {
-            width: 250px;
-            background: linear-gradient(to bottom, var(--primary), var(--primary-dark));
-            color: white;
-            padding: 20px 0;
-            transition: var(--transition);
-            box-shadow: var(--box-shadow);
-        }
-
-        .logo {
-            text-align: center;
-            padding: 0 20px 20px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            margin-bottom: 20px;
-        }
-
-        .logo h1 {
-            font-size: 24px;
-            margin-bottom: 5px;
-        }
-
-        .logo p {
-            font-size: 14px;
-            opacity: 0.8;
-        }
-
-        .user-profile {
-            display: flex;
-            align-items: center;
-            padding: 15px 20px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            margin-bottom: 20px;
-        }
-
-        .user-avatar {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            background-color: rgba(255, 255, 255, 0.2);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 15px;
-            font-size: 20px;
-        }
-
-        .user-info h3 {
-            font-size: 16px;
-            margin-bottom: 5px;
-        }
-
-        .user-info p {
-            font-size: 12px;
-            opacity: 0.8;
-        }
-
-        .menu {
-            list-style: none;
-            padding: 0 15px;
-        }
-
-        .menu-item {
-            margin-bottom: 5px;
-        }
-
-        .menu-link {
-            display: flex;
-            align-items: center;
-            padding: 12px 15px;
-            color: white;
-            text-decoration: none;
-            border-radius: var(--border-radius);
-            transition: var(--transition);
-        }
-
-        .menu-link:hover, .menu-link.active {
-            background-color: rgba(255, 255, 255, 0.1);
-        }
-
-        .menu-link i {
-            margin-right: 10px;
-            font-size: 18px;
-            width: 24px;
-            text-align: center;
-        }
-
-        /* Main Content */
-        .main-content {
-            flex: 1;
-            padding: 20px;
-            overflow-y: auto;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 25px;
-        }
-
-        .welcome-section h1 {
-            font-size: 24px;
-            margin-bottom: 5px;
-            color: var(--primary);
-        }
-
-        .welcome-section p {
-            color: var(--gray);
-            font-size: 14px;
-        }
-
-        .date-time {
-            text-align: right;
-        }
-
-        .date-time .date {
-            font-size: 16px;
-            font-weight: 600;
-        }
-
-        .date-time .time {
-            font-size: 14px;
-            color: var(--gray);
-        }
-
-        /* Dashboard Grid */
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 20px;
-            margin-bottom: 25px;
-        }
-
-        .card {
-            background: white;
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
-            padding: 20px;
-            transition: var(--transition);
-        }
-
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-        }
-
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-
-        .card-title {
-            font-size: 16px;
-            font-weight: 600;
-            color: var(--dark);
-        }
-
-        .card-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 18px;
-        }
-
-        .card-content {
-            margin-bottom: 10px;
-        }
-
-        .card-value {
-            font-size: 24px;
-            font-weight: 700;
-            margin-bottom: 5px;
-        }
-
-        .card-description {
-            font-size: 14px;
-            color: var(--gray);
-        }
-
-        .finance-summary {
-            background: linear-gradient(to right, var(--primary), var(--primary-dark));
-            color: white;
-        }
-
-        .finance-summary .card-icon {
-            background-color: rgba(255, 255, 255, 0.2);
-        }
-
-        .members-summary .card-icon {
-            background-color: var(--info);
-        }
-
-        .loans-summary .card-icon {
-            background-color: var(--warning);
-        }
-
-        .meeting-summary .card-icon {
-            background-color: var(--secondary);
-        }
-
-        /* Modules Grid */
-        .modules-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-            gap: 15px;
-            margin-bottom: 25px;
-        }
-
-        .module-card {
-            background: white;
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
-            padding: 20px 15px;
-            text-align: center;
-            transition: var(--transition);
-            cursor: pointer;
-        }
-
-        .module-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-        }
-
-        .module-icon {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 15px;
-            color: white;
-            font-size: 20px;
-        }
-
-        .module-icon.members {
-            background-color: var(--info);
-        }
-
-        .module-icon.meetings {
-            background-color: var(--secondary);
-        }
-
-        .module-icon.contributions {
-            background-color: var(--success);
-        }
-
-        .module-icon.loans {
-            background-color: var(--warning);
-        }
-
-        .module-icon.fines {
-            background-color: var(--danger);
-        }
-
-        .module-icon.reports {
-            background-color: var(--primary);
-        }
-
-        .module-icon.cycle {
-            background-color: var(--primary-dark);
-        }
-
-        .module-icon.settings {
-            background-color: var(--gray);
-        }
-
-        .module-title {
-            font-size: 14px;
-            font-weight: 600;
-            margin-bottom: 5px;
-        }
-
-        .module-description {
-            font-size: 12px;
-            color: var(--gray);
-        }
-
-        /* Notifications & Stats */
-        .notifications-stats {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 20px;
-        }
-
-        .notifications {
-            background: white;
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
-            padding: 20px;
-        }
-
-        .section-title {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 15px;
-            color: var(--dark);
-            display: flex;
-            align-items: center;
-        }
-
-        .section-title i {
-            margin-right: 10px;
-            color: var(--primary);
-        }
-
-        .notification-item {
-            display: flex;
-            align-items: flex-start;
-            padding: 12px 0;
-            border-bottom: 1px solid #eee;
-        }
-
-        .notification-item:last-child {
-            border-bottom: none;
-        }
-
-        .notification-icon {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 15px;
-            color: white;
-            font-size: 14px;
-            flex-shrink: 0;
-        }
-
-        .notification-icon.warning {
-            background-color: var(--warning);
-        }
-
-        .notification-icon.danger {
-            background-color: var(--danger);
-        }
-
-        .notification-icon.info {
-            background-color: var(--info);
-        }
-
-        .notification-icon.secondary {
-            background-color: var(--secondary);
-        }
-
-        .notification-content h4 {
-            font-size: 14px;
-            margin-bottom: 5px;
-        }
-
-        .notification-content p {
-            font-size: 13px;
-            color: var(--gray);
-        }
-
-        .stats {
-            background: white;
-            border-radius: var(--border-radius);
-            box-shadow: var(--box-shadow);
-            padding: 20px;
-        }
-
-        .stat-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 0;
-            border-bottom: 1px solid #eee;
-        }
-
-        .stat-item:last-child {
-            border-bottom: none;
-        }
-
-        .stat-info h4 {
-            font-size: 14px;
-            margin-bottom: 5px;
-        }
-
-        .stat-info p {
-            font-size: 13px;
-            color: var(--gray);
-        }
-
-        .stat-value {
-            font-size: 18px;
-            font-weight: 700;
-        }
-
-        .stat-value.positive {
-            color: var(--success);
-        }
-
-        .stat-value.warning {
-            color: var(--warning);
-        }
-
-        .stat-value.danger {
-            color: var(--danger);
-        }
-
-        /* Responsive */
-        @media (max-width: 992px) {
-            .notifications-stats {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                flex-direction: column;
-            }
+import streamlit as st
+import pymysql
+import pandas as pd
+from datetime import datetime
+import os
+
+# Configuración de la página
+st.set_page_config(
+    page_title="Sistema GAPC",
+    page_icon="🏠",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Inicializar session state
+if 'usuario' not in st.session_state:
+    st.session_state.usuario = None
+if 'id_grupo' not in st.session_state:
+    st.session_state.id_grupo = None
+
+# CSS personalizado - MODIFICADO con nuevo verde y paneles más compactos
+st.markdown("""
+<style>
+    .main-header {
+        color: #6f42c1;
+        text-align: center;
+        margin-bottom: 1rem;
+        font-size: 2rem;
+    }
+    .stButton button {
+        background-color: #6f42c1;
+        color: white;
+        border: none;
+        padding: 0.4rem 0.8rem;
+        border-radius: 0.4rem;
+        font-weight: bold;
+        font-size: 0.9rem;
+    }
+    .login-container {
+        max-width: 350px;
+        margin: 1.5rem auto;
+        padding: 1.5rem;
+        border: 2px solid #e0d1f9;
+        border-radius: 0.8rem;
+        background: #f8fafc;
+    }
+    .welcome-message {
+        background: linear-gradient(135deg, #6f42c1, #8b5cf6);
+        color: white;
+        padding: 1rem;
+        border-radius: 0.8rem;
+        text-align: center;
+        margin: 0.8rem 0;
+        font-size: 0.9rem;
+    }
+    .saldo-card {
+        background: linear-gradient(135deg, #059669, #10b981);  /* VERDE MODIFICADO */
+        color: white;
+        padding: 1.2rem;
+        border-radius: 0.8rem;
+        text-align: center;
+        margin: 0.8rem 0;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    .metric-card {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.6rem;
+        padding: 0.8rem;
+        text-align: center;
+        margin: 0.3rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    .module-button {
+        background: white;
+        color: #6f42c1;
+        border: 2px solid #6f42c1;
+        padding: 0.8rem;
+        border-radius: 0.6rem;
+        margin: 0.3rem;
+        font-weight: bold;
+        font-size: 0.85rem;
+        width: 100%;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .module-button:hover {
+        background: #6f42c1;
+        color: white;
+        transform: translateY(-1px);
+    }
+    .notification-panel {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.6rem;
+        padding: 0.8rem;
+        margin: 0.5rem 0;
+        font-size: 0.8rem;
+    }
+    .sidebar-content {
+        font-size: 0.85rem;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Función de conexión a BD - CLEVER CLOUD
+def obtener_conexion():
+    try:
+        conexion = pymysql.connect(
+            host='bhzcn4gxgbe5tcxihqd1-mysql.services.clever-cloud.com',
+            user='usv5pnvafxbrw5hs',
+            password='WiOSztB38WxsKuXjnQgT',
+            database='bhzcn4gxgbe5tcxihqd1',
+            port=3306,
+            charset='utf8mb4',
+            cursorclass=pymysql.cursors.DictCursor,
+            connect_timeout=10
+        )
+        return conexion
+    except Exception as e:
+        st.error(f"❌ Error de conexión: {e}")
+        return None
+
+# Función para obtener estadísticas reales
+def obtener_estadisticas_reales(id_grupo=None):
+    """Obtiene estadísticas reales de la base de datos"""
+    try:
+        conexion = obtener_conexion()
+        if conexion:
+            cursor = conexion.cursor()
             
-            .sidebar {
-                width: 100%;
-                height: auto;
-            }
+            estadisticas = {}
             
-            .dashboard-grid {
-                grid-template-columns: 1fr 1fr;
-            }
+            # Total de miembros
+            if id_grupo:
+                cursor.execute("SELECT COUNT(*) as total FROM miembrogapc WHERE id_grupo = %s", (id_grupo,))
+            else:
+                cursor.execute("SELECT COUNT(*) as total FROM miembrogapc")
+            resultado = cursor.fetchone()
+            estadisticas['total_miembros'] = resultado['total'] if resultado else 0
             
-            .modules-grid {
-                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            }
+            # Préstamos activos (aprobados)
+            if id_grupo:
+                cursor.execute("""
+                    SELECT COUNT(*) as total 
+                    FROM prestamo p 
+                    JOIN miembrogapc m ON p.id_miembro = m.id_miembro 
+                    WHERE m.id_grupo = %s AND p.estado = 'aprobado'
+                """, (id_grupo,))
+            else:
+                cursor.execute("SELECT COUNT(*) as total FROM prestamo WHERE estado = 'aprobado'")
+            resultado = cursor.fetchone()
+            estadisticas['prestamos_activos'] = resultado['total'] if resultado else 0
+            
+            # Reuniones este mes
+            if id_grupo:
+                cursor.execute("""
+                    SELECT COUNT(*) as total 
+                    FROM reunion 
+                    WHERE id_gruppo = %s 
+                    AND MONTH(fecha) = MONTH(CURDATE()) 
+                    AND YEAR(fecha) = YEAR(CURDATE())
+                """, (id_grupo,))
+            else:
+                cursor.execute("""
+                    SELECT COUNT(*) as total 
+                    FROM reunion 
+                    WHERE MONTH(fecha) = MONTH(CURDATE()) 
+                    AND YEAR(fecha) = YEAR(CURDATE())
+                """)
+            resultado = cursor.fetchone()
+            estadisticas['reuniones_mes'] = resultado['total'] if resultado else 0
+            
+            # Total de aportes (SALDO ACTUAL)
+            if id_grupo:
+                cursor.execute("""
+                    SELECT COALESCE(SUM(a.monto), 0) as total 
+                    FROM aporte a
+                    JOIN reunion r ON a.id_reunion = r.id_reunion
+                    WHERE r.id_gruppo = %s
+                """, (id_grupo,))
+            else:
+                cursor.execute("""
+                    SELECT COALESCE(SUM(a.monto), 0) as total 
+                    FROM aporte a
+                    JOIN reunion r ON a.id_reunion = r.id_reunion
+                """)
+            resultado = cursor.fetchone()
+            estadisticas['saldo_actual'] = float(resultado['total']) if resultado and resultado['total'] else 0.0
+            
+            cursor.close()
+            conexion.close()
+            return estadisticas
+            
+    except Exception as e:
+        st.error(f"Error al obtener estadísticas: {e}")
+        return {
+            'total_miembros': 0,
+            'prestamos_activos': 0, 
+            'reuniones_mes': 0,
+            'saldo_actual': 0.0
         }
 
-        @media (max-width: 576px) {
-            .dashboard-grid {
-                grid-template-columns: 1fr;
-            }
+# FUNCIÓN PARA VERIFICAR LOGIN REAL
+def verificar_login_real(correo, contrasena):
+    """Verifica credenciales contra la base de datos"""
+    try:
+        conexion = obtener_conexion()
+        if conexion:
+            cursor = conexion.cursor()
             
-            .modules-grid {
-                grid-template-columns: 1fr 1fr;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="logo">
-                <h1>🏦 GAPC</h1>
-                <p>Sistema de Gestión de Grupos de Ahorro</p>
-            </div>
+            cursor.execute("""
+                SELECT m.id_miembro, m.nombre, m.correo, m.contrasena, r.tipo_rol, m.id_grupo
+                FROM miembrogapc m
+                JOIN rol r ON m.id_rol = r.id_rol
+                WHERE m.correo = %s AND m.contrasena IS NOT NULL
+            """, (correo,))
             
-            <div class="user-profile">
-                <div class="user-avatar">
-                    <i class="fas fa-user"></i>
-                </div>
-                <div class="user-info">
-                    <h3>María López</h3>
-                    <p>Presidenta</p>
-                </div>
-            </div>
+            usuario = cursor.fetchone()
+            cursor.close()
+            conexion.close()
             
-            <ul class="menu">
-                <li class="menu-item">
-                    <a href="#" class="menu-link active">
-                        <i class="fas fa-home"></i>
-                        <span>Inicio</span>
-                    </a>
-                </li>
-                <li class="menu-item">
-                    <a href="#" class="menu-link">
-                        <i class="fas fa-users"></i>
-                        <span>Miembros</span>
-                    </a>
-                </li>
-                <li class="menu-item">
-                    <a href="#" class="menu-link">
-                        <i class="fas fa-calendar-alt"></i>
-                        <span>Reuniones</span>
-                    </a>
-                </li>
-                <li class="menu-item">
-                    <a href="#" class="menu-link">
-                        <i class="fas fa-hand-holding-usd"></i>
-                        <span>Finanzas</span>
-                    </a>
-                </li>
-                <li class="menu-item">
-                    <a href="#" class="menu-link">
-                        <i class="fas fa-chart-bar"></i>
-                        <span>Reportes</span>
-                    </a>
-                </li>
-                <li class="menu-item">
-                    <a href="#" class="menu-link">
-                        <i class="fas fa-sync-alt"></i>
-                        <span>Cierre de Ciclo</span>
-                    </a>
-                </li>
-                <li class="menu-item">
-                    <a href="#" class="menu-link">
-                        <i class="fas fa-cog"></i>
-                        <span>Configuración</span>
-                    </a>
-                </li>
-                <li class="menu-item">
-                    <a href="#" class="menu-link">
-                        <i class="fas fa-sign-out-alt"></i>
-                        <span>Cerrar Sesión</span>
-                    </a>
-                </li>
-            </ul>
-        </aside>
+            if usuario:
+                if usuario['contrasena'] == contrasena:
+                    return {
+                        'id': usuario['id_miembro'],
+                        'nombre': usuario['nombre'],
+                        'correo': usuario['correo'],
+                        'tipo_rol': usuario['tipo_rol'],
+                        'id_grupo': usuario['id_grupo']
+                    }
         
-        <!-- Main Content -->
-        <main class="main-content">
-            <div class="header">
-                <div class="welcome-section">
-                    <h1>¡Bienvenido/a, María López!</h1>
-                    <p>Presidenta - Grupo Las Mariposas</p>
-                </div>
-                <div class="date-time">
-                    <div class="date">Miércoles, 20 de Noviembre de 2024</div>
-                    <div class="time">14:30</div>
-                </div>
-            </div>
+        return None
+        
+    except Exception as e:
+        st.error(f"Error al verificar login: {e}")
+        return None
+
+# FUNCIÓN DE LOGIN
+def mostrar_formulario_login():
+    """Muestra el formulario de login"""
+    
+    st.markdown('<div class="main-header">🏠 Sistema GAPC</div>', unsafe_allow_html=True)
+    
+    # Probar conexión primero
+    if st.button("🔍 Probar Conexión a Base de Datos"):
+        conexion = obtener_conexion()
+        if conexion:
+            st.success("✅ ¡Conexión exitosa a Clever Cloud!")
+            conexion.close()
+        else:
+            st.error("❌ No se pudo conectar a la base de datos")
+    
+    modo = st.radio(
+        "Selecciona modo de acceso:",
+        ["🧪 Modo Prueba", "🔐 Modo Real"],
+        horizontal=True
+    )
+    
+    st.markdown("""
+        <div class="login-container">
+    """, unsafe_allow_html=True)
+    
+    st.subheader("🔐 Iniciar Sesión")
+    
+    with st.form("login_form"):
+        if modo == "🔐 Modo Real":
+            correo = st.text_input("📧 Correo Electrónico", placeholder="usuario@ejemplo.com")
+        else:
+            correo = st.text_input("👤 Nombre de Usuario", placeholder="Ingresa cualquier nombre")
             
-            <!-- Dashboard Summary -->
-            <div class="dashboard-grid">
-                <div class="card finance-summary">
-                    <div class="card-header">
-                        <div class="card-title">SALDO ACTUAL</div>
-                        <div class="card-icon">
-                            <i class="fas fa-dollar-sign"></i>
-                        </div>
-                    </div>
-                    <div class="card-content">
-                        <div class="card-value">$15,450.00</div>
-                        <div class="card-description">Disponible en caja</div>
-                    </div>
-                </div>
-                
-                <div class="card members-summary">
-                    <div class="card-header">
-                        <div class="card-title">MIEMBROS</div>
-                        <div class="card-icon">
-                            <i class="fas fa-users"></i>
-                        </div>
-                    </div>
-                    <div class="card-content">
-                        <div class="card-value">25</div>
-                        <div class="card-description">Miembros activos</div>
-                    </div>
-                </div>
-                
-                <div class="card loans-summary">
-                    <div class="card-header">
-                        <div class="card-title">PRÉSTAMOS ACTIVOS</div>
-                        <div class="card-icon">
-                            <i class="fas fa-hand-holding-usd"></i>
-                        </div>
-                    </div>
-                    <div class="card-content">
-                        <div class="card-value">8</div>
-                        <div class="card-description">Préstamos vigentes</div>
-                    </div>
-                </div>
-                
-                <div class="card meeting-summary">
-                    <div class="card-header">
-                        <div class="card-title">PRÓXIMA REUNIÓN</div>
-                        <div class="card-icon">
-                            <i class="fas fa-calendar-alt"></i>
-                        </div>
-                    </div>
-                    <div class="card-content">
-                        <div class="card-value">22/11/2024</div>
-                        <div class="card-description">Viernes - 14:00</div>
-                    </div>
-                </div>
-            </div>
+        contrasena = st.text_input("🔒 Contraseña", type="password", placeholder="••••••••")
+        
+        submitted = st.form_submit_button("🚀 Ingresar al Sistema", use_container_width=True)
+        
+        if submitted:
+            if correo and contrasena:
+                with st.spinner("Verificando credenciales..."):
+                    if modo == "🔐 Modo Real":
+                        usuario = verificar_login_real(correo, contrasena)
+                        if usuario:
+                            st.session_state.usuario = usuario
+                            st.success(f"¡Bienvenido/a {usuario['nombre']}! 👋")
+                            st.rerun()
+                        else:
+                            st.error("❌ Credenciales incorrectas o usuario no existe")
+                    else:
+                        st.session_state.usuario = {
+                            'nombre': correo.title(),
+                            'tipo_rol': 'Usuario',
+                            'id_grupo': 1
+                        }
+                        st.success(f"¡Bienvenido/a {st.session_state.usuario['nombre']}! 👋 (Modo Prueba)")
+                        st.rerun()
+            else:
+                st.warning("⚠️ Por favor completa todos los campos")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# FUNCIÓN DE DASHBOARD CON NUEVO DISEÑO COMPACTO
+def mostrar_dashboard_principal():
+    """Muestra el dashboard principal con el nuevo diseño compacto"""
+    
+    usuario = st.session_state.usuario
+    
+    # Obtener estadísticas reales
+    id_grupo_usuario = usuario.get('id_grupo')
+    estadisticas = obtener_estadisticas_reales(id_grupo_usuario)
+    
+    # SIDEBAR COMPACTO
+    with st.sidebar:
+        st.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
+        st.image("https://via.placeholder.com/120x40/6f42c1/white?text=GAPC", width=120)
+        st.markdown("---")
+        st.write(f"**👤 {usuario['nombre']}**")
+        st.write(f"**🎭 {usuario['tipo_rol']}**")
+        st.write(f"**🏢 Grupo #{usuario.get('id_grupo', 1)}**")
+        
+        if 'correo' in usuario:
+            st.write("**🔐 Modo Real**")
+        else:
+            st.write("**🧪 Modo Prueba**")
             
-            <!-- Modules -->
-            <h2 class="section-title"><i class="fas fa-th-large"></i> Módulos del Sistema</h2>
-            <div class="modules-grid">
-                <div class="module-card">
-                    <div class="module-icon members">
-                        <i class="fas fa-users"></i>
-                    </div>
-                    <div class="module-title">Miembros</div>
-                    <div class="module-description">Gestión de miembros del grupo</div>
-                </div>
-                
-                <div class="module-card">
-                    <div class="module-icon meetings">
-                        <i class="fas fa-calendar-alt"></i>
-                    </div>
-                    <div class="module-title">Reuniones</div>
-                    <div class="module-description">Calendario y registro de reuniones</div>
-                </div>
-                
-                <div class="module-card">
-                    <div class="module-icon contributions">
-                        <i class="fas fa-hand-holding-usd"></i>
-                    </div>
-                    <div class="module-title">Aportes</div>
-                    <div class="module-description">Registro de aportes y ahorros</div>
-                </div>
-                
-                <div class="module-card">
-                    <div class="module-icon loans">
-                        <i class="fas fa-file-invoice-dollar"></i>
-                    </div>
-                    <div class="module-title">Préstamos</div>
-                    <div class="module-description">Gestión de préstamos y pagos</div>
-                </div>
-                
-                <div class="module-card">
-                    <div class="module-icon fines">
-                        <i class="fas fa-exclamation-triangle"></i>
-                    </div>
-                    <div class="module-title">Multas</div>
-                    <div class="module-description">Control de multas y sanciones</div>
-                </div>
-                
-                <div class="module-card">
-                    <div class="module-icon reports">
-                        <i class="fas fa-chart-bar"></i>
-                    </div>
-                    <div class="module-title">Reportes</div>
-                    <div class="module-description">Reportes financieros y estadísticas</div>
-                </div>
-                
-                <div class="module-card">
-                    <div class="module-icon cycle">
-                        <i class="fas fa-sync-alt"></i>
-                    </div>
-                    <div class="module-title">Cierre de Ciclo</div>
-                    <div class="module-description">Cierre de período y reparto</div>
-                </div>
-                
-                <div class="module-card">
-                    <div class="module-icon settings">
-                        <i class="fas fa-cog"></i>
-                    </div>
-                    <div class="module-title">Configuración</div>
-                    <div class="module-description">Ajustes del grupo y reglamento</div>
-                </div>
-            </div>
-            
-            <!-- Notifications & Stats -->
-            <div class="notifications-stats">
-                <div class="notifications">
-                    <h2 class="section-title"><i class="fas fa-bell"></i> Notificaciones y Alertas</h2>
-                    
-                    <div class="notification-item">
-                        <div class="notification-icon warning">
-                            <i class="fas fa-exclamation"></i>
-                        </div>
-                        <div class="notification-content">
-                            <h4>Préstamo próximo a vencer</h4>
-                            <p>Ana García - Vence en 3 días ($500.00)</p>
-                        </div>
-                    </div>
-                    
-                    <div class="notification-item">
-                        <div class="notification-icon danger">
-                            <i class="fas fa-times"></i>
-                        </div>
-                        <div class="notification-content">
-                            <h4>Préstamo VENCIDO</h4>
-                            <p>Rosa Martínez - $750.00</p>
-                        </div>
-                    </div>
-                    
-                    <div class="notification-item">
-                        <div class="notification-icon info">
-                            <i class="fas fa-calendar"></i>
-                        </div>
-                        <div class="notification-content">
-                            <h4>Próxima Reunión</h4>
-                            <p>En 2 días - 22/11/2024 a las 14:00</p>
-                        </div>
-                    </div>
-                    
-                    <div class="notification-item">
-                        <div class="notification-icon secondary">
-                            <i class="fas fa-money-bill-wave"></i>
-                        </div>
-                        <div class="notification-content">
-                            <h4>Multas Pendientes</h4>
-                            <p>3 multas pendientes - Total: $45.00</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="stats">
-                    <h2 class="section-title"><i class="fas fa-chart-line"></i> Estadísticas Rápidas</h2>
-                    
-                    <div class="stat-item">
-                        <div class="stat-info">
-                            <h4>Asistencia Promedio</h4>
-                            <p>Último mes</p>
-                        </div>
-                        <div class="stat-value positive">92%</div>
-                    </div>
-                    
-                    <div class="stat-item">
-                        <div class="stat-info">
-                            <h4>Total Ahorrado</h4>
-                            <p>Este mes</p>
-                        </div>
-                        <div class="stat-value positive">$3,250.00</div>
-                    </div>
-                    
-                    <div class="stat-item">
-                        <div class="stat-info">
-                            <h4>Préstamos en Mora</h4>
-                            <p>Actualmente</p>
-                        </div>
-                        <div class="stat-value danger">2</div>
-                    </div>
-                    
-                    <div class="stat-item">
-                        <div class="stat-info">
-                            <h4>Reuniones</h4>
-                            <p>Este mes</p>
-                        </div>
-                        <div class="stat-value">4</div>
-                    </div>
-                </div>
-            </div>
-        </main>
+        st.markdown("---")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🔄 Actualizar", use_container_width=True):
+                st.rerun()
+        with col2:
+            if st.button("🚪 Salir", use_container_width=True):
+                st.session_state.usuario = None
+                st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # CONTENIDO PRINCIPAL COMPACTO
+    # Header de bienvenida más pequeño
+    st.markdown(f'''
+    <div class="welcome-message">
+        <h3>¡Bienvenido/a, {usuario['nombre']}!</h3>
+        <p>{usuario['tipo_rol']} - Grupo #{usuario.get('id_grupo', 1)}</p>
     </div>
+    ''', unsafe_allow_html=True)
+    
+    # SALDO ACTUAL (ÚNICA MÉTRICA) - MÁS COMPACTO
+    st.markdown("## 💰 Resumen Financiero")
+    
+    st.markdown(f'''
+    <div class="saldo-card">
+        <h3>SALDO ACTUAL DEL GRUPO</h3>
+        <h2>₡{estadisticas['saldo_actual']:,.2f}</h2>
+        <p>Total acumulado de aportes</p>
+    </div>
+    ''', unsafe_allow_html=True)
+    
+    # MÉTRICAS RÁPIDAS EN FILA COMPACTA
+    st.markdown("## 📊 Estadísticas Rápidas")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.markdown(f'''
+        <div class="metric-card">
+            <h4>👥 MIEMBROS</h4>
+            <h3>{estadisticas['total_miembros']}</h3>
+        </div>
+        ''', unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f'''
+        <div class="metric-card">
+            <h4>💳 PRÉSTAMOS</h4>
+            <h3>{estadisticas['prestamos_activos']}</h3>
+        </div>
+        ''', unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown(f'''
+        <div class="metric-card">
+            <h4>📅 REUNIONES</h4>
+            <h3>{estadisticas['reuniones_mes']}</h3>
+        </div>
+        ''', unsafe_allow_html=True)
+    
+    with col4:
+        st.markdown(f'''
+        <div class="metric-card">
+            <h4>📈 ASISTENCIA</h4>
+            <h3>92%</h3>
+        </div>
+        ''', unsafe_allow_html=True)
+    
+    # BOTONES DE MÓDULOS MÁS COMPACTOS
+    st.markdown("## 🚀 Módulos del Sistema")
+    
+    # Primera fila de botones compactos
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        if st.button("👥 **Miembros**\nGestión de miembros", use_container_width=True, key="miembros"):
+            st.info("🔧 Módulo Miembros - En desarrollo")
+    
+    with col2:
+        if st.button("📅 **Reuniones**\nCalendario y registro", use_container_width=True, key="reuniones"):
+            st.info("🔧 Módulo Reuniones - En desarrollo")
+    
+    with col3:
+        if st.button("💰 **Aportes**\nRegistro de ahorros", use_container_width=True, key="aportes"):
+            st.info("🔧 Módulo Aportes - En desarrollo")
+    
+    with col4:
+        if st.button("💳 **Préstamos**\nGestionar préstamos", use_container_width=True, key="prestamos"):
+            st.info("🔧 Módulo Préstamos - En desarrollo")
+    
+    # Segunda fila de botones compactos
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        if st.button("⚠️ **Multas**\nControl de sanciones", use_container_width=True, key="multas"):
+            st.info("🔧 Módulo Multas - En desarrollo")
+    
+    with col2:
+        if st.button("📊 **Reportes**\nEstadísticas", use_container_width=True, key="reportes"):
+            st.info("🔧 Módulo Reportes - En desarrollo")
+    
+    with col3:
+        if st.button("🔄 **Cierre**\nCierre de período", use_container_width=True, key="cierre"):
+            st.info("🔧 Módulo Cierre - En desarrollo")
+    
+    with col4:
+        if st.button("⚙️ **Configuración**\nAjustes del grupo", use_container_width=True, key="configuracion"):
+            st.info("🔧 Módulo Configuración - En desarrollo")
+    
+    # NOTIFICACIONES Y ALERTAS COMPACTAS
+    st.markdown("## 🔔 Notificaciones y Alertas")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown('''
+        <div class="notification-panel">
+            <h4>⚠️ Alertas Activas</h4>
+            <p>• Préstamo próximo a vencer: Ana García ($500)</p>
+            <p>• 🚨 Préstamo VENCIDO: Rosa Martínez ($750)</p>
+            <p>• 3 Multas Pendientes: $45.00</p>
+        </div>
+        ''', unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown('''
+        <div class="notification-panel">
+            <h4>📅 Próximos Eventos</h4>
+            <p>• Próxima Reunión: 22/11/2024 - 14:00</p>
+            <p>• Vencimiento préstamos: 25/11/2024</p>
+            <p>• Cierre de ciclo: 30/11/2024</p>
+        </div>
+        ''', unsafe_allow_html=True)
+    
+    # Información del sistema compacta
+    st.markdown("---")
+    st.markdown(f"*Última actualización: {datetime.now().strftime('%d/%m/%Y %H:%M')}*")
+    
+    # Información de conexión (oculta pero disponible)
+    with st.expander("🔧 Información Técnica"):
+        col1, col2 = st.columns(2)
+        with col1:
+            conexion_status = "Conectada ✅ (Clever Cloud)" if obtener_conexion() else "Desconectada ❌"
+            st.info(f"**Base de datos:** {conexion_status}")
+        with col2:
+            st.info("**Sistema GAPC v1.0**")
 
-    <script>
-        // Actualizar hora en tiempo real
-        function updateTime() {
-            const now = new Date();
-            const timeElement = document.querySelector('.time');
-            
-            const hours = now.getHours().toString().padStart(2, '0');
-            const minutes = now.getMinutes().toString().padStart(2, '0');
-            
-            timeElement.textContent = `${hours}:${minutes}`;
-        }
-        
-        // Actualizar cada minuto
-        setInterval(updateTime, 60000);
-        
-        // Inicializar
-        updateTime();
-        
-        // Efectos de interacción
-        document.querySelectorAll('.module-card').forEach(card => {
-            card.addEventListener('click', function() {
-                alert(`Accediendo al módulo: ${this.querySelector('.module-title').textContent}`);
-            });
-        });
-    </script>
-</body>
-</html>
+# APLICACIÓN PRINCIPAL
+def main():
+    if not st.session_state.usuario:
+        mostrar_formulario_login()
+    else:
+        mostrar_dashboard_principal()
+
+if __name__ == "__main__":
+    main()
