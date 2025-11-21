@@ -464,7 +464,7 @@ st.markdown("### 🚀 Módulos del Sistema")
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    if st.button("👥 **Miembros**\nGestión", use_container_width=True, key="miembros"):
+    if st.button("👥 **Miembros**", use_container_width=True, key="miembros"):
         st.session_state.pagina_actual = "miembros"
         st.rerun()
 
@@ -512,3 +512,4 @@ if 'id_grupo' not in st.session_state:
     st.session_state.id_grupo = None
 if 'pagina_actual' not in st.session_state:
     st.session_state.pagina_actual = "dashboard"
+
