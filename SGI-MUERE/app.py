@@ -1,8 +1,8 @@
 import streamlit as st
-import mysql.connector
-from mysql.connector import Error
+import pymysql
 import pandas as pd
 from datetime import datetime
+import os
 
 # Configuración de la página
 st.set_page_config(
@@ -51,43 +51,24 @@ st.markdown("""
         text-align: center;
         margin: 1rem 0;
     }
-    .metric-card {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 1rem;
-        border: 2px solid #e0d1f9;
-        text-align: center;
-        margin-bottom: 1rem;
-    }
-    .module-card {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 1rem;
-        border: 2px solid #e0d1f9;
-        margin-bottom: 1rem;
-        height: 180px;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-    }
-    .sidebar-content {
-        padding: 1rem;
-    }
 </style>
 """, unsafe_allow_html=True)
 
-# FUNCIÓN DE CONEXIÓN A INFINITYFREE
+# Función de conexión a BD - CLEVER CLOUD
 def obtener_conexion():
     try:
-        conexion = mysql.connector.connect(
-            host='sql213.infinityfree.com',
-            user='if0_40469649',
-            password='Tofy1234567890',
-            database='if0_40469649_GAPC',
-            port=3306
+        conexion = pymysql.connect(
+            host='bhzcn4gxgbe5tcxihqd1-mysql.services.clever-cloud.com',  # ⬅️ HOST CLEVER CLOUD
+            user='usv5pnvafxbrw5hs',                                      # ⬅️ USUARIO CLEVER CLOUD
+            password='WiOSztB38WxsKuXjnQgT',                             # ⬅️ PASSWORD CLEVER CLOUD
+            database='bhzcn4gxgbe5tcxihqd1',                             # ⬅️ DATABASE CLEVER CLOUD
+            port=3306,                                                   # ⬅️ PUERTO CLEVER CLOUD
+            charset='utf8mb4',
+            cursorclass=pymysql.cursors.DictCursor,
+            connect_timeout=10  # Timeout para evitar esperas largas
         )
         return conexion
-    except Error as e:
+    except Exception as e:
         st.error(f"❌ Error de conexión: {e}")
         return None
 
@@ -97,7 +78,7 @@ def obtener_estadisticas_reales(id_grupo=None):
     try:
         conexion = obtener_conexion()
         if conexion:
-            cursor = conexion.cursor(dictionary=True)
+            cursor = conexion.cursor()
             
             estadisticas = {}
             
@@ -106,7 +87,8 @@ def obtener_estadisticas_reales(id_grupo=None):
                 cursor.execute("SELECT COUNT(*) as total FROM miembrogapc WHERE id_grupo = %s", (id_grupo,))
             else:
                 cursor.execute("SELECT COUNT(*) as total FROM miembrogapc")
-            estadisticas['total_miembros'] = cursor.fetchone()['total']
+            resultado = cursor.fetchone()
+            estadisticas['total_miembros'] = resultado['total'] if resultado else 0
             
             # Préstamos activos (aprobados)
             if id_grupo:
@@ -118,7 +100,8 @@ def obtener_estadisticas_reales(id_grupo=None):
                 """, (id_grupo,))
             else:
                 cursor.execute("SELECT COUNT(*) as total FROM prestamo WHERE estado = 'aprobado'")
-            estadisticas['prestamos_activos'] = cursor.fetchone()['total']
+            resultado = cursor.fetchone()
+            estadisticas['prestamos_activos'] = resultado['total'] if resultado else 0
             
             # Reuniones este mes
             if id_grupo:
@@ -136,7 +119,8 @@ def obtener_estadisticas_reales(id_grupo=None):
                     WHERE MONTH(fecha) = MONTH(CURDATE()) 
                     AND YEAR(fecha) = YEAR(CURDATE())
                 """)
-            estadisticas['reuniones_mes'] = cursor.fetchone()['total']
+            resultado = cursor.fetchone()
+            estadisticas['reuniones_mes'] = resultado['total'] if resultado else 0
             
             # Total de aportes este mes
             if id_grupo:
@@ -157,7 +141,7 @@ def obtener_estadisticas_reales(id_grupo=None):
                     AND YEAR(r.fecha) = YEAR(CURDATE())
                 """)
             resultado = cursor.fetchone()
-            estadisticas['total_aportes'] = float(resultado['total']) if resultado['total'] else 0.0
+            estadisticas['total_aportes'] = float(resultado['total']) if resultado and resultado['total'] else 0.0
             
             cursor.close()
             conexion.close()
@@ -178,7 +162,7 @@ def verificar_login_real(correo, contrasena):
     try:
         conexion = obtener_conexion()
         if conexion:
-            cursor = conexion.cursor(dictionary=True)
+            cursor = conexion.cursor()
             
             # Buscar usuario por correo
             cursor.execute("""
@@ -219,7 +203,7 @@ def mostrar_formulario_login():
     if st.button("🔍 Probar Conexión a Base de Datos"):
         conexion = obtener_conexion()
         if conexion:
-            st.success("✅ ¡Conexión exitosa a InfinityFree MySQL!")
+            st.success("✅ ¡Conexión exitosa a Clever Cloud!")
             conexion.close()
         else:
             st.error("❌ No se pudo conectar a la base de datos")
@@ -286,6 +270,7 @@ def mostrar_formulario_login():
             - 📧 Correo registrado en la base de datos
             - 🔒 Contraseña correcta
             - 🔐 Verificación contra usuarios reales
+            - 🌐 **Base de datos:** Clever Cloud MySQL
             """)
     
     st.markdown("</div>", unsafe_allow_html=True)
@@ -306,8 +291,6 @@ def mostrar_dashboard_principal():
     
     # Sidebar
     with st.sidebar:
-        st.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
-        
         st.image("https://via.placeholder.com/150x50/6f42c1/white?text=GAPC", width=150)
         st.markdown("---")
         st.write(f"**👤 Usuario:** {usuario['nombre']}")
@@ -328,8 +311,6 @@ def mostrar_dashboard_principal():
         if st.button("🚪 Cerrar Sesión", use_container_width=True):
             st.session_state.usuario = None
             st.rerun()
-            
-        st.markdown('</div>', unsafe_allow_html=True)
     
     # MÉTRICAS PRINCIPALES (REALES)
     st.subheader("📊 Resumen General - Datos en Tiempo Real")
@@ -407,12 +388,11 @@ def mostrar_dashboard_principal():
     
     with col1:
         st.info(f"**Última actualización:** {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")
-        conexion_status = "Conectada ✅" if obtener_conexion() else "Desconectada ❌"
+        conexion_status = "Conectada ✅ (Clever Cloud)" if obtener_conexion() else "Desconectada ❌"
         st.info(f"**Base de datos:** {conexion_status}")
     
     with col2:
         st.info("**Sistema GAPC v1.0**")
-        st.info("**Host:** InfinityFree MySQL")
         st.info("**Estado:** 🟢 En funcionamiento")
 
 # APLICACIÓN PRINCIPAL
