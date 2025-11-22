@@ -354,43 +354,6 @@ def mostrar_dashboard_principal():
     </div>
     ''', unsafe_allow_html=True)
     
-    # MÉTRICAS RÁPIDAS EN FILA MÁS COMPACTA
-    st.markdown("### 📊 Estadísticas Rápidas")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.markdown(f'''
-        <div class="metric-card">
-            <p><strong>👥 MIEMBROS</strong></p>
-            <h4>{estadisticas['total_miembros']}</h4>
-        </div>
-        ''', unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown(f'''
-        <div class="metric-card">
-            <p><strong>💳 PRÉSTAMOS</strong></p>
-            <h4>{estadisticas['prestamos_activos']}</h4>
-        </div>
-        ''', unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown(f'''
-        <div class="metric-card">
-            <p><strong>📅 REUNIONES</strong></p>
-            <h4>{estadisticas['reuniones_mes']}</h4>
-        </div>
-        ''', unsafe_allow_html=True)
-    
-    with col4:
-        st.markdown(f'''
-        <div class="metric-card">
-            <p><strong>📈 ASISTENCIA</strong></p>
-            <h4>92%</h4>
-        </div>
-        ''', unsafe_allow_html=True)
-    
     # BOTONES DE MÓDULOS MÁS COMPACTOS
     st.markdown("### 🚀 Módulos del Sistema")
     
@@ -453,4 +416,4 @@ def main():
         mostrar_dashboard_principal()
 
 if __name__ == "__main__":
-    main() 
+    main()
