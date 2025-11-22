@@ -540,7 +540,7 @@ def mostrar_dashboard():
         <div class="module-card">
             <div class="module-content">
                 <div class="module-icon" style="background-color: #4c2a85;">🔄</div>
-                <h4 style="color: #5a32a3; margin: 0.5rem 0;">Cierre de Período</h4>
+                <h4 style="color: #5a32a3; margin: 0.4rem 0;">Cierre de Período</h4>
                 <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Cierre de período y reparto</p>
             </div>
             <div class="purple-button-container" onclick="alert('Abriendo Cierre de Período')">
@@ -609,6 +609,7 @@ if st.session_state.usuario is None:
     mostrar_login()
 else:
     mostrar_dashboard()
+
 
 
 
