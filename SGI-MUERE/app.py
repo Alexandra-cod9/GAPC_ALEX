@@ -192,7 +192,7 @@ def aplicar_estilos():
         display: flex;
         flex-direction: column;
         justify-content: center;
-        margin-bottom: 5rem; /* Más espacio antes del botón */
+        margin-bottom: 10rem; /* Más espacio antes del botón */
     }
     
     /* Botones morados en recuadro con más espacio */
@@ -206,7 +206,7 @@ def aplicar_estilos():
         text-align: center;
         cursor: pointer;
         width: 100%;
-        margin-top: 5rem; /* Más espacio arriba */
+        margin-top: 1rem; /* Más espacio arriba */
         display: flex;
         align-items: center;
         justify-content: center;
@@ -609,6 +609,7 @@ if st.session_state.usuario is None:
     mostrar_login()
 else:
     mostrar_dashboard()
+
 
 
 
