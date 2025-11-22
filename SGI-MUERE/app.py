@@ -2,10 +2,9 @@ import streamlit as st
 import pymysql
 import pandas as pd
 from datetime import datetime
+import os
 
-# ==========================================
-# CONFIGURACIÓN DE LA PÁGINA
-# ==========================================
+# Configuración de la página
 st.set_page_config(
     page_title="Sistema GAPC",
     page_icon="🏠",
@@ -13,602 +12,445 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ==========================================
-# SESSION STATE
-# ==========================================
-if "usuario" not in st.session_state:
+# Inicializar session state
+if 'usuario' not in st.session_state:
     st.session_state.usuario = None
+if 'id_grupo' not in st.session_state:
+    st.session_state.id_grupo = None
 
+# CSS personalizado - MÁS COMPACTO
+st.markdown("""
+<style>
+    .main-header {
+        color: #6f42c1;
+        text-align: center;
+        margin-bottom: 0.5rem;
+        font-size: 1.5rem;
+    }
+    .stButton button {
+        background-color: #6f42c1;
+        color: white;
+        border: none;
+        padding: 0.3rem 0.6rem;
+        border-radius: 0.3rem;
+        font-weight: bold;
+        font-size: 0.8rem;
+    }
+    .login-container {
+        max-width: 300px;
+        margin: 1rem auto;
+        padding: 1rem;
+        border: 1px solid #e0d1f9;
+        border-radius: 0.5rem;
+        background: #f8fafc;
+    }
+    .welcome-message {
+        background: linear-gradient(135deg, #6f42c1, #8b5cf6);
+        color: white;
+        padding: 0.8rem;
+        border-radius: 0.5rem;
+        text-align: center;
+        margin: 0.5rem 0;
+        font-size: 0.8rem;
+    }
+    .saldo-card {
+        background: linear-gradient(135deg, #059669, #10b981);
+        color: white;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        text-align: center;
+        margin: 0.5rem 0;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+    .metric-card {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.4rem;
+        padding: 0.6rem;
+        text-align: center;
+        margin: 0.2rem;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+    .module-button {
+        background: white;
+        color: #6f42c1;
+        border: 1px solid #6f42c1;
+        padding: 0.6rem;
+        border-radius: 0.4rem;
+        margin: 0.2rem;
+        font-weight: bold;
+        font-size: 0.75rem;
+        width: 100%;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .module-button:hover {
+        background: #6f42c1;
+        color: white;
+        transform: translateY(-1px);
+    }
+    .sidebar-content {
+        font-size: 0.75rem;
+    }
+    .compact-text {
+        font-size: 0.8rem;
+        margin: 0.2rem 0;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-# ==========================================
-# CONEXIÓN A MYSQL (Clever Cloud)
-# ==========================================
+# Función de conexión a BD - CLEVER CLOUD
 def obtener_conexion():
     try:
         conexion = pymysql.connect(
-            host="bhzcn4gxgbe5tcxihqd1-mysql.services.clever-cloud.com",
-            user="usv5pnvafxbrw5hs",
-            password="WiOSztB38WxsKuXjnQgT",
-            database="bhzcn4gxgbe5tcxihqd1",
+            host='bhzcn4gxgbe5tcxihqd1-mysql.services.clever-cloud.com',
+            user='usv5pnvafxbrw5hs',
+            password='WiOSztB38WxsKuXjnQgT',
+            database='bhzcn4gxgbe5tcxihqd1',
             port=3306,
+            charset='utf8mb4',
             cursorclass=pymysql.cursors.DictCursor,
-            charset="utf8mb4"
+            connect_timeout=10
         )
         return conexion
     except Exception as e:
-        st.error(f"❌ Error conectando a la BD: {e}")
+        st.error(f"❌ Error de conexión: {e}")
         return None
 
-
-# ==========================================
-# LOGIN REAL
-# ==========================================
-def verificar_login(correo, contrasena):
+# Función para obtener estadísticas reales
+def obtener_estadisticas_reales(id_grupo=None):
+    """Obtiene estadísticas reales de la base de datos"""
     try:
         conexion = obtener_conexion()
-        if not conexion:
-            return None
-
-        cursor = conexion.cursor()
-
-        cursor.execute("""
-            SELECT m.id_miembro, m.nombre, m.correo, m.contrasena, 
-                   m.id_grupo, r.tipo_rol
-            FROM miembrogapc m
-            JOIN rol r ON m.id_rol = r.id_rol
-            WHERE m.correo = %s
-        """, (correo,))
-
-        usuario = cursor.fetchone()
-        cursor.close()
-        conexion.close()
-
-        if usuario and usuario["contrasena"] == contrasena:
-            return usuario
-
-        return None
-
+        if conexion:
+            cursor = conexion.cursor()
+            
+            estadisticas = {}
+            
+            # Total de miembros
+            if id_grupo:
+                cursor.execute("SELECT COUNT(*) as total FROM miembrogapc WHERE id_grupo = %s", (id_grupo,))
+            else:
+                cursor.execute("SELECT COUNT(*) as total FROM miembrogapc")
+            resultado = cursor.fetchone()
+            estadisticas['total_miembros'] = resultado['total'] if resultado else 0
+            
+            # Préstamos activos (aprobados)
+            if id_grupo:
+                cursor.execute("""
+                    SELECT COUNT(*) as total 
+                    FROM prestamo p 
+                    JOIN miembrogapc m ON p.id_miembro = m.id_miembro 
+                    WHERE m.id_grupo = %s AND p.estado = 'aprobado'
+                """, (id_grupo,))
+            else:
+                cursor.execute("SELECT COUNT(*) as total FROM prestamo WHERE estado = 'aprobado'")
+            resultado = cursor.fetchone()
+            estadisticas['prestamos_activos'] = resultado['total'] if resultado else 0
+            
+            # Reuniones este mes
+            if id_grupo:
+                cursor.execute("""
+                    SELECT COUNT(*) as total 
+                    FROM reunion 
+                    WHERE id_gruppo = %s 
+                    AND MONTH(fecha) = MONTH(CURDATE()) 
+                    AND YEAR(fecha) = YEAR(CURDATE())
+                """, (id_grupo,))
+            else:
+                cursor.execute("""
+                    SELECT COUNT(*) as total 
+                    FROM reunion 
+                    WHERE MONTH(fecha) = MONTH(CURDATE()) 
+                    AND YEAR(fecha) = YEAR(CURDATE())
+                """)
+            resultado = cursor.fetchone()
+            estadisticas['reuniones_mes'] = resultado['total'] if resultado else 0
+            
+            # Total de aportes (SALDO ACTUAL)
+            if id_grupo:
+                cursor.execute("""
+                    SELECT COALESCE(SUM(a.monto), 0) as total 
+                    FROM aporte a
+                    JOIN reunion r ON a.id_reunion = r.id_reunion
+                    WHERE r.id_gruppo = %s
+                """, (id_grupo,))
+            else:
+                cursor.execute("""
+                    SELECT COALESCE(SUM(a.monto), 0) as total 
+                    FROM aporte a
+                    JOIN reunion r ON a.id_reunion = r.id_reunion
+                """)
+            resultado = cursor.fetchone()
+            estadisticas['saldo_actual'] = float(resultado['total']) if resultado and resultado['total'] else 0.0
+            
+            cursor.close()
+            conexion.close()
+            return estadisticas
+            
     except Exception as e:
-        st.error(f"⚠️ Error verificando login: {e}")
-        return None
+        st.error(f"Error al obtener estadísticas: {e}")
+        return {
+            'total_miembros': 0,
+            'prestamos_activos': 0, 
+            'reuniones_mes': 0,
+            'saldo_actual': 0.0
+        }
 
-
-# ==========================================
-# ESTADÍSTICAS DEL DASHBOARD
-# ==========================================
-def obtener_estadisticas(id_grupo):
-    stats = {
-        "total_miembros": 0,
-        "prestamos_activos": 0,
-        "reuniones_mes": 0,
-        "saldo_actual": 0
-    }
-
+# FUNCIÓN PARA VERIFICAR LOGIN REAL
+def verificar_login_real(correo, contrasena):
+    """Verifica credenciales contra la base de datos"""
     try:
         conexion = obtener_conexion()
-        if not conexion:
-            return stats
-
-        cursor = conexion.cursor()
-
-        # Total miembros
-        cursor.execute("SELECT COUNT(*) AS total FROM miembrogapc WHERE id_grupo=%s", (id_grupo,))
-        stats["total_miembros"] = cursor.fetchone()["total"]
-
-        # Préstamos activos
-        cursor.execute("""
-            SELECT COUNT(*) AS total
-            FROM prestamo p
-            JOIN miembrogapc m ON p.id_miembro = m.id_miembro
-            WHERE p.estado='aprobado' AND m.id_grupo=%s
-        """, (id_grupo,))
-        stats["prestamos_activos"] = cursor.fetchone()["total"]
-
-        # Reuniones este mes (corrección: id_grupo)
-        cursor.execute("""
-            SELECT COUNT(*) AS total
-            FROM reunion
-            WHERE id_grupo=%s
-            AND MONTH(fecha)=MONTH(CURDATE())
-            AND YEAR(fecha)=YEAR(CURDATE())
-        """, (id_grupo,))
-        stats["reuniones_mes"] = cursor.fetchone()["total"]
-
-        # Saldo actual (corrección: id_grupo)
-        cursor.execute("""
-            SELECT COALESCE(SUM(a.monto), 0) AS total
-            FROM aporte a
-            JOIN reunion r ON a.id_reunion=r.id_reunion
-            WHERE r.id_grupo=%s
-        """, (id_grupo,))
-        stats["saldo_actual"] = float(cursor.fetchone()["total"])
-
-        cursor.close()
-        conexion.close()
-        return stats
-
+        if conexion:
+            cursor = conexion.cursor()
+            
+            cursor.execute("""
+                SELECT m.id_miembro, m.nombre, m.correo, m.contrasena, r.tipo_rol, m.id_grupo
+                FROM miembrogapc m
+                JOIN rol r ON m.id_rol = r.id_rol
+                WHERE m.correo = %s AND m.contrasena IS NOT NULL
+            """, (correo,))
+            
+            usuario = cursor.fetchone()
+            cursor.close()
+            conexion.close()
+            
+            if usuario:
+                if usuario['contrasena'] == contrasena:
+                    return {
+                        'id': usuario['id_miembro'],
+                        'nombre': usuario['nombre'],
+                        'correo': usuario['correo'],
+                        'tipo_rol': usuario['tipo_rol'],
+                        'id_grupo': usuario['id_grupo']
+                    }
+        
+        return None
+        
     except Exception as e:
-        st.error(f"⚠️ Error cargando estadísticas: {e}")
-        return stats
+        st.error(f"Error al verificar login: {e}")
+        return None
 
-
-# ==========================================
-# ESTILOS CSS PERSONALIZADOS
-# ==========================================
-def aplicar_estilos():
+# FUNCIÓN DE LOGIN
+def mostrar_formulario_login():
+    """Muestra el formulario de login"""
+    
+    st.markdown('<div class="main-header">🏠 Sistema GAPC</div>', unsafe_allow_html=True)
+    
+    # Probar conexión primero
+    if st.button("🔍 Probar Conexión a Base de Datos"):
+        conexion = obtener_conexion()
+        if conexion:
+            st.success("✅ ¡Conexión exitosa a Clever Cloud!")
+            conexion.close()
+        else:
+            st.error("❌ No se pudo conectar a la base de datos")
+    
+    modo = st.radio(
+        "Selecciona modo de acceso:",
+        ["🧪 Modo Prueba", "🔐 Modo Real"],
+        horizontal=True
+    )
+    
     st.markdown("""
-    <style>
-    /* Fondo general */
-    .main .block-container {
-        background-color: #f8fafc;
-        padding-top: 2rem;
-    }
-    
-    /* Sidebar */
-    [data-testid="stSidebar"] > div:first-child {
-        background-color: white;
-        padding: 2rem 1rem;
-    }
-    
-    /* Tarjetas con gradientes */
-    .metric-card-purple {
-        background: linear-gradient(90deg, #6f42c1, #5a32a3);
-        color: white;
-        padding: 1.5rem;
-        border-radius: 12px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        text-align: center;
-    }
-    
-    /* Módulos del sistema */
-    .module-card {
-        background-color: white;
-        border: 2px solid #c9b3f5;
-        border-radius: 15px;
-        padding: 1.5rem;
-        text-align: center;
-        height: 220px; /* Aumentada la altura para más espacio */
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-        margin-bottom: 4rem;
-    }
-    
-    .module-icon {
-        width: 60px;
-        height: 60px;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto;
-        font-size: 28px;
-        color: white;
-    }
-    
-    /* Contenido del módulo con más espacio */
-    .module-content {
-        flex-grow: 1;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        margin-bottom: 1rem; /* Más espacio antes del botón */
-    }
-    
-    /* Botones morados en recuadro con más espacio */
-    .purple-button-container {
-        background: linear-gradient(90deg, #6f42c1, #5a32a3);
-        color: white;
-        border: none;
-        border-radius: 8px;
-        padding: 0.75rem 1rem; /* Más padding vertical */
-        font-weight: bold;
-        text-align: center;
-        cursor: pointer;
-        width: 100%;
-        margin-top: 1rem; /* Más espacio arriba */
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.3s ease;
-        font-size: 1rem;
-        min-height: 45px; /* Altura mínima consistente */
-    }
-    
-    .purple-button-container:hover {
-        background: linear-gradient(90deg, #5a32a3, #4a2a8c);
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(106, 66, 193, 0.3);
-    }
-    
-    /* Estadísticas rápidas */
-    .stat-card {
-        padding: 1rem;
-        border-radius: 8px;
-        margin-bottom: 1rem;
-        text-align: center;
-    }
-    
-    .stat-purple {
-        background-color: #f3ebff;
-        border: 1px solid #c9b3f5;
-    }
-    
-    .stat-green {
-        background-color: #d1fae5;
-        border: 1px solid #a7f3d0;
-    }
-    
-    .stat-red {
-        background-color: #fee2e2;
-        border: 1px solid #fecaca;
-    }
-    
-    /* Botones del sidebar */
-    .sidebar-button {
-        width: 100%;
-        padding: 0.75rem 1rem;
-        margin-bottom: 0.5rem;
-        border-radius: 8px;
-        border: 2px solid #c9b3f5;
-        background-color: white;
-        color: #6f42c1;
-        text-align: left;
-        font-weight: bold;
-        cursor: pointer;
-    }
-    
-    .sidebar-button.active {
-        background: linear-gradient(90deg, #6f42c1, #5a32a3);
-        color: white;
-        border: none;
-    }
-    
-    .sidebar-logout {
-        background-color: #64748b;
-        color: white;
-        border: none;
-    }
-    
-    /* Perfil de usuario */
-    .user-profile {
-        background-color: #f3ebff;
-        padding: 1rem;
-        border-radius: 8px;
-        margin-bottom: 1rem;
-        display: flex;
-        align-items: center;
-    }
-    
-    .user-avatar {
-        width: 50px;
-        height: 50px;
-        border-radius: 50%;
-        background-color: #a78bfa;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-right: 1rem;
-        font-size: 20px;
-        color: white;
-    }
-    
-    /* Mejoras para los botones de Streamlit */
-    .stButton button {
-        width: 100%;
-        margin-bottom: 0.5rem;
-    }
-    
-    /* Más espacio entre elementos */
-    .module-spacing {
-        margin-bottom: 2rem;
-    }
-    </style>
+        <div class="login-container">
     """, unsafe_allow_html=True)
-
-
-# ==========================================
-# FORMULARIO DE LOGIN
-# ==========================================
-def mostrar_login():
-    aplicar_estilos()
     
-    st.markdown("<h1 style='text-align: center; color: #6f42c1;'>🏠 Sistema GAPC</h1>", unsafe_allow_html=True)
+    st.markdown('<p class="compact-text"><strong>🔐 Iniciar Sesión</strong></p>', unsafe_allow_html=True)
     
-    col1, col2, col3 = st.columns([1, 2, 1])
-    
-    with col2:
-        with st.container():
-            st.markdown("<div style='background-color: white; padding: 2rem; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);'>", unsafe_allow_html=True)
-            st.markdown("<h2 style='text-align: center; color: #5a32a3;'>Iniciar Sesión</h2>", unsafe_allow_html=True)
+    with st.form("login_form"):
+        if modo == "🔐 Modo Real":
+            correo = st.text_input("📧 Correo Electrónico", placeholder="usuario@ejemplo.com")
+        else:
+            correo = st.text_input("👤 Nombre de Usuario", placeholder="Ingresa cualquier nombre")
             
-            correo = st.text_input("📧 Correo")
-            contrasena = st.text_input("🔒 Contraseña", type="password")
-            
-            if st.button("Ingresar", use_container_width=True):
-                usuario = verificar_login(correo, contrasena)
-                if usuario:
-                    st.success(f"Bienvenido {usuario['nombre']}!")
-                    st.session_state.usuario = usuario
-                    st.rerun()
-                else:
-                    st.error("❌ Credenciales incorrectas")
-                    
-            st.markdown("</div>", unsafe_allow_html=True)
+        contrasena = st.text_input("🔒 Contraseña", type="password", placeholder="••••••••")
+        
+        submitted = st.form_submit_button("🚀 Ingresar al Sistema", use_container_width=True)
+        
+        if submitted:
+            if correo and contrasena:
+                with st.spinner("Verificando credenciales..."):
+                    if modo == "🔐 Modo Real":
+                        usuario = verificar_login_real(correo, contrasena)
+                        if usuario:
+                            st.session_state.usuario = usuario
+                            st.success(f"¡Bienvenido/a {usuario['nombre']}! 👋")
+                            st.rerun()
+                        else:
+                            st.error("❌ Credenciales incorrectas o usuario no existe")
+                    else:
+                        st.session_state.usuario = {
+                            'nombre': correo.title(),
+                            'tipo_rol': 'Usuario',
+                            'id_grupo': 1
+                        }
+                        st.success(f"¡Bienvenido/a {st.session_state.usuario['nombre']}! 👋 (Modo Prueba)")
+                        st.rerun()
+            else:
+                st.warning("⚠️ Por favor completa todos los campos")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
 
-
-# ==========================================
-# SIDEBAR
-# ==========================================
-def mostrar_sidebar():
+# FUNCIÓN DE DASHBOARD MÁS COMPACTO
+def mostrar_dashboard_principal():
+    """Muestra el dashboard principal más compacto"""
+    
     usuario = st.session_state.usuario
     
+    # Obtener estadísticas reales
+    id_grupo_usuario = usuario.get('id_grupo')
+    estadisticas = obtener_estadisticas_reales(id_grupo_usuario)
+    
+    # SIDEBAR MÁS COMPACTO
     with st.sidebar:
-        # Logo y título
-        st.markdown("""
-        <div style='background: linear-gradient(90deg, #6f42c1, #5a32a3); padding: 1rem; border-radius: 10px; text-align: center; margin-bottom: 2rem;'>
-            <h2 style='color: white; margin: 0;'>🏦 GAPC</h2>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
+        st.image("https://via.placeholder.com/100x30/6f42c1/white?text=GAPC", width=100)
+        st.markdown("---")
+        st.write(f"**👤 {usuario['nombre']}**")
+        st.write(f"**🎭 {usuario['tipo_rol']}**")
+        st.write(f"**🏢 Grupo #{usuario.get('id_grupo', 1)}**")
         
-        # Perfil de usuario
-        st.markdown(f"""
-        <div class="user-profile">
-            <div class="user-avatar">👤</div>
-            <div>
-                <div style="font-weight: bold; color: #5a32a3;">{usuario['nombre']}</div>
-                <div style="font-size: 0.8rem; color: #64748b;">{usuario['tipo_rol']}</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        if 'correo' in usuario:
+            st.write("**🔐 Modo Real**")
+        else:
+            st.write("**🧪 Modo Prueba**")
+            
+        st.markdown("---")
         
-        st.markdown("<hr style='margin: 1rem 0;'>", unsafe_allow_html=True)
-        
-        # Menú de navegación
-        st.markdown("<p style='font-weight: bold; color: #6f42c1;'>📋 Menú Principal</p>", unsafe_allow_html=True)
-        
-        # Botones del menú usando st.button directamente
-        if st.button("🏠 Inicio", use_container_width=True, type="primary"):
-            st.rerun()
-            
-        if st.button("👥 Miembros", use_container_width=True):
-            st.rerun()
-            
-        if st.button("📅 Reuniones", use_container_width=True):
-            st.rerun()
-            
-        if st.button("💰 Aportes", use_container_width=True):
-            st.rerun()
-            
-        if st.button("💳 Préstamos", use_container_width=True):
-            st.rerun()
-            
-        if st.button("⚠️ Multas", use_container_width=True):
-            st.rerun()
-            
-        if st.button("📊 Reportes", use_container_width=True):
-            st.rerun()
-            
-        if st.button("🔄 Cierre de Ciclo", use_container_width=True):
-            st.rerun()
-            
-        if st.button("⚙️ Configuración", use_container_width=True):
-            st.rerun()
-        
-        st.markdown("<div style='flex-grow: 1;'></div>", unsafe_allow_html=True)
-        
-        # Botón cerrar sesión
-        if st.button("🚪 Cerrar Sesión", use_container_width=True):
-            st.session_state.usuario = None
-            st.rerun()
-
-
-# ==========================================
-# DASHBOARD
-# ==========================================
-def mostrar_dashboard():
-    aplicar_estilos()
-    usuario = st.session_state.usuario
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🔄 Actualizar", use_container_width=True):
+                st.rerun()
+        with col2:
+            if st.button("🚪 Salir", use_container_width=True):
+                st.session_state.usuario = None
+                st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
     
-    # Mostrar sidebar
-    mostrar_sidebar()
-    
-    # Título principal
-    st.markdown(f"<h1 style='color: #5a32a3;'>👋 ¡Bienvenido/a, {usuario['nombre']}!</h1>", unsafe_allow_html=True)
-    st.markdown(f"<p style='color: #64748b; font-size: 1.2rem;'>{usuario['tipo_rol']} - Grupo {usuario['id_grupo']}</p>", unsafe_allow_html=True)
-    
-    # Obtener estadísticas
-    stats = obtener_estadisticas(usuario["id_grupo"])
-    
-    # Sección: Resumen Financiero - SOLO SALDO ACTUAL
-    st.markdown("<h2 style='color: #5a32a3;'>📊 Resumen Financiero</h2>", unsafe_allow_html=True)
-    
-    # Solo Saldo Actual
-    st.markdown(f"""
-    <div class="metric-card-purple">
-        <p style="margin: 0; font-size: 1rem;">💰 SALDO ACTUAL</p>
-        <h2 style="margin: 0.5rem 0;">${stats['saldo_actual']:,.2f}</h2>
+    # CONTENIDO PRINCIPAL MÁS COMPACTO
+    # Header de bienvenida más pequeño
+    st.markdown(f'''
+    <div class="welcome-message">
+        <h4>¡Bienvenido/a, {usuario['nombre']}!</h4>
+        <p>{usuario['tipo_rol']} - Grupo #{usuario.get('id_grupo', 1)}</p>
     </div>
-    """, unsafe_allow_html=True)
+    ''', unsafe_allow_html=True)
     
-    # Sección: Módulos del Sistema
-    st.markdown("<h2 style='color: #5a32a3; margin-top: 2rem;'>📋 Módulos del Sistema</h2>", unsafe_allow_html=True)
+    # SALDO ACTUAL - MÁS COMPACTO
+    st.markdown("### 💰 Resumen Financiero")
     
-    # Grid de módulos (3 columnas x 3 filas)
-    # Fila 1
-    col1, col2, col3 = st.columns(3)
+    st.markdown(f'''
+    <div class="saldo-card">
+        <h4>SALDO ACTUAL DEL GRUPO</h4>
+        <h3>${estadisticas['saldo_actual']:,.2f}</h3>
+        <p>Total acumulado de aportes</p>
+    </div>
+    ''', unsafe_allow_html=True)
     
-    with col1:
-        # Módulo Miembros
-        st.markdown("""
-        <div class="module-card">
-            <div class="module-content">
-                <div class="module-icon" style="background: linear-gradient(90deg, #8b5cf6, #6f42c1);">👥</div>
-                <h4 style="color: #5a32a3; margin: 1.1rem 0;">Miembros</h4>
-                <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Gestión de miembros del grupo</p>
-            </div>
-            <div class="purple-button-container" onclick="alert('Abriendo Miembros')">
-                Abrir
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        # Módulo Reuniones
-        st.markdown("""
-        <div class="module-card">
-            <div class="module-content">
-                <div class="module-icon" style="background-color: #6f42c1;">📅</div>
-                <h4 style="color: #5a32a3; margin: 0.5rem 0;">Reuniones</h4>
-                <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Calendario y registro de reuniones</p>
-            </div>
-            <div class="purple-button-container" onclick="alert('Abriendo Reuniones')">
-                Abrir
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        # Módulo Aportes
-        st.markdown("""
-        <div class="module-card">
-            <div class="module-content">
-                <div class="module-icon" style="background-color: #10b981;">💰</div>
-                <h4 style="color: #5a32a3; margin: 1.1rem 0;">Aportes</h4>
-                <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Registro de aportes y ahorros</p>
-            </div>
-            <div class="purple-button-container" onclick="alert('Abriendo Aportes')">
-                Abrir
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Fila 2
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        # Módulo Préstamos
-        st.markdown("""
-        <div class="module-card">
-            <div class="module-content">
-                <div class="module-icon" style="background-color: #eab308;">💳</div>
-                <h4 style="color: #5a32a3; margin: 1.1rem 0;">Préstamos</h4>
-                <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Gestión de préstamos y pagos</p>
-            </div>
-            <div class="purple-button-container" onclick="alert('Abriendo Préstamos')">
-                Abrir
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        # Módulo Multas
-        st.markdown("""
-        <div class="module-card">
-            <div class="module-content">
-                <div class="module-icon" style="background-color: #ef4444;">⚠️</div>
-                <h4 style="color: #5a32a3; margin: 1.1rem 0;">Multas</h4>
-                <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Control de multas y sanciones</p>
-            </div>
-            <div class="purple-button-container" onclick="alert('Abriendo Multas')">
-                Abrir
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        # Módulo Reportes
-        st.markdown("""
-        <div class="module-card">
-            <div class="module-content">
-                <div class="module-icon" style="background-color: #5a32a3;">📊</div>
-                <h4 style="color: #5a32a3; margin: 0.5rem 0;">Reportes</h4>
-                <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Reportes financieros y estadísticas</p>
-            </div>
-            <div class="purple-button-container" onclick="alert('Abriendo Reportes')">
-                Abrir
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Fila 3
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        # Módulo Cierre de Período
-        st.markdown("""
-        <div class="module-card">
-            <div class="module-content">
-                <div class="module-icon" style="background-color: #4c2a85;">🔄</div>
-                <h4 style="color: #5a32a3; margin: 0.4rem 0;">Cierre de Período</h4>
-                <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Cierre de período y reparto</p>
-            </div>
-            <div class="purple-button-container" onclick="alert('Abriendo Cierre de Período')">
-                Abrir
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        # Módulo Configuración
-        st.markdown("""
-        <div class="module-card">
-            <div class="module-content">
-                <div class="module-icon" style="background-color: #64748b;">⚙️</div>
-                <h4 style="color: #5a32a3; margin: 1.1rem 0;">Configuración</h4>
-                <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Ajustes del grupo y reglamento</p>
-            </div>
-            <div class="purple-button-container" onclick="alert('Abriendo Configuración')">
-                Abrir
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Sección de Estadísticas Rápidas
-    st.markdown("<h2 style='color: #5a32a3; margin-top: 2rem;'>📈 Estadísticas Rápidas</h2>", unsafe_allow_html=True)
+    # MÉTRICAS RÁPIDAS EN FILA MÁS COMPACTA
+    st.markdown("### 📊 Estadísticas Rápidas")
     
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.markdown("""
-        <div class="stat-card stat-purple">
-            <p style="margin: 0; font-size: 0.8rem; color: #64748b;">Asistencia Promedio</p>
-            <p style="margin: 0; font-size: 1.5rem; font-weight: bold; color: #5a32a3;">92%</p>
+        st.markdown(f'''
+        <div class="metric-card">
+            <p><strong>👥 MIEMBROS</strong></p>
+            <h4>{estadisticas['total_miembros']}</h4>
         </div>
-        """, unsafe_allow_html=True)
+        ''', unsafe_allow_html=True)
     
     with col2:
-        st.markdown("""
-        <div class="stat-card stat-green">
-            <p style="margin: 0; font-size: 0.8rem; color: #065f46;">Total Ahorrado (Este Mes)</p>
-            <p style="margin: 0; font-size: 1.2rem; font-weight: bold; color: #065f46;">$3,250.00</p>
+        st.markdown(f'''
+        <div class="metric-card">
+            <p><strong>💳 PRÉSTAMOS</strong></p>
+            <h4>{estadisticas['prestamos_activos']}</h4>
         </div>
-        """, unsafe_allow_html=True)
+        ''', unsafe_allow_html=True)
     
     with col3:
-        st.markdown("""
-        <div class="stat-card stat-red">
-            <p style="margin: 0; font-size: 0.8rem; color: #991b1b;">Préstamos en Mora</p>
-            <p style="margin: 0; font-size: 1.5rem; font-weight: bold; color: #991b1b;">2</p>
+        st.markdown(f'''
+        <div class="metric-card">
+            <p><strong>📅 REUNIONES</strong></p>
+            <h4>{estadisticas['reuniones_mes']}</h4>
         </div>
-        """, unsafe_allow_html=True)
+        ''', unsafe_allow_html=True)
     
     with col4:
-        st.markdown("""
-        <div class="stat-card stat-purple">
-            <p style="margin: 0; font-size: 0.8rem; color: #64748b;">Reuniones (Este Mes)</p>
-            <p style="margin: 0; font-size: 1.5rem; font-weight: bold; color: #5a32a3;">4</p>
+        st.markdown(f'''
+        <div class="metric-card">
+            <p><strong>📈 ASISTENCIA</strong></p>
+            <h4>92%</h4>
         </div>
-        """, unsafe_allow_html=True)
+        ''', unsafe_allow_html=True)
+    
+    # BOTONES DE MÓDULOS MÁS COMPACTOS
+    st.markdown("### 🚀 Módulos del Sistema")
+    
+    # Primera fila de botones compactos
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        if st.button("👥 **Miembros**\nGestión", use_container_width=True, key="miembros"):
+            st.info("🔧 Módulo Miembros - En desarrollo")
+    
+    with col2:
+        if st.button("📅 **Reuniones**\nCalendario", use_container_width=True, key="reuniones"):
+            st.info("🔧 Módulo Reuniones - En desarrollo")
+    
+    with col3:
+        if st.button("💰 **Aportes**\nAhorros", use_container_width=True, key="aportes"):
+            st.info("🔧 Módulo Aportes - En desarrollo")
+    
+    with col4:
+        if st.button("💳 **Préstamos**\nGestionar", use_container_width=True, key="prestamos"):
+            st.info("🔧 Módulo Préstamos - En desarrollo")
+    
+    # Segunda fila de botones compactos
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        if st.button("⚠️ **Multas**\nSanciones", use_container_width=True, key="multas"):
+            st.info("🔧 Módulo Multas - En desarrollo")
+    
+    with col2:
+        if st.button("📊 **Reportes**\nEstadísticas", use_container_width=True, key="reportes"):
+            st.info("🔧 Módulo Reportes - En desarrollo")
+    
+    with col3:
+        if st.button("🔄 **Cierre**\nPeríodo", use_container_width=True, key="cierre"):
+            st.info("🔧 Módulo Cierre - En desarrollo")
+    
+    with col4:
+        if st.button("⚙️ **Configuración**\nAjustes", use_container_width=True, key="configuracion"):
+            st.info("🔧 Módulo Configuración - En desarrollo")
+    
+    # Información del sistema más compacta
+    st.markdown("---")
+    st.markdown(f'<p class="compact-text">*Última actualización: {datetime.now().strftime("%d/%m/%Y %H:%M")}*</p>', unsafe_allow_html=True)
+    
+    # Información de conexión (oculta pero disponible)
+    with st.expander("🔧 Información Técnica"):
+        col1, col2 = st.columns(2)
+        with col1:
+            conexion_status = "Conectada ✅ (Clever Cloud)" if obtener_conexion() else "Desconectada ❌"
+            st.info(f"**Base de datos:** {conexion_status}")
+        with col2:
+            st.info("**Sistema GAPC v1.0**")
 
+# APLICACIÓN PRINCIPAL
+def main():
+    if not st.session_state.usuario:
+        mostrar_formulario_login()
+    else:
+        mostrar_dashboard_principal()
 
-# ==========================================
-# FLUJO PRINCIPAL
-# ==========================================
-if st.session_state.usuario is None:
-    mostrar_login()
-else:
-    mostrar_dashboard()
-
-
-
+if __name__ == "__main__":
+    main() 
