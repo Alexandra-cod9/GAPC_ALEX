@@ -8,6 +8,7 @@ from modules.prestamo.prestamo import mostrar_modulo_prestamos
 from modules.multa.multa import mostrar_modulo_multas
 from modules.cierre.cierre import mostrar_modulo_cierre
 from modules.grupo.grupo import mostrar_modulo_grupo
+from config.conexion import obtener_conexion  # Importar la función de conexión
 
 # Configuración de la página
 st.set_page_config(
@@ -43,6 +44,23 @@ st.markdown("""
         border-radius: 0.5rem;
         background: #f8fafc;
     }
+    .status-conexion {
+        padding: 0.5rem;
+        border-radius: 0.3rem;
+        margin: 0.5rem 0;
+        text-align: center;
+        font-weight: bold;
+    }
+    .conexion-exitosa {
+        background-color: #d1fae5;
+        color: #065f46;
+        border: 1px solid #a7f3d0;
+    }
+    .conexion-fallida {
+        background-color: #fee2e2;
+        color: #991b1b;
+        border: 1px solid #fecaca;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -54,10 +72,51 @@ if 'id_grupo' not in st.session_state:
 if 'current_module' not in st.session_state:
     st.session_state.current_module = None
 
+# Función para verificar estado de conexión
+def verificar_conexion_bd():
+    """Verifica el estado de conexión a la base de datos"""
+    try:
+        conexion = obtener_conexion()
+        if conexion:
+            # Probar una consulta simple
+            cursor = conexion.cursor()
+            cursor.execute("SELECT 1 as test")
+            resultado = cursor.fetchone()
+            cursor.close()
+            conexion.close()
+            
+            return True, "✅ Conectado a Clever Cloud - Base de datos operativa"
+        else:
+            return False, "❌ No se pudo establecer conexión"
+    except Exception as e:
+        return False, f"❌ Error de conexión: {str(e)}"
+
 # Función de login
 def mostrar_formulario_login():
     """Muestra el formulario de login"""
+    
+    # VERIFICACIÓN DE CONEXIÓN EN TIEMPO REAL
     st.markdown('<div class="main-header">🏠 Sistema GAPC</div>', unsafe_allow_html=True)
+    
+    # Mostrar estado de conexión
+    conexion_ok, mensaje_conexion = verificar_conexion_bd()
+    
+    if conexion_ok:
+        st.markdown(f'<div class="status-conexion conexion-exitosa">{mensaje_conexion}</div>', unsafe_allow_html=True)
+    else:
+        st.markdown(f'<div class="status-conexion conexion-fallida">{mensaje_conexion}</div>', unsafe_allow_html=True)
+        
+        # Información adicional para debugging
+        with st.expander("🔧 Información para solución de problemas"):
+            st.write("**Problema común:** La base de datos en Clever Cloud no tiene las tablas creadas")
+            st.write("**Solución:**")
+            st.write("1. Ve a tu panel de Clever Cloud")
+            st.write("2. Abre la base de datos 'bhzcn4gxgbe5tcxihqd1'")
+            st.write("3. Ejecuta el SQL de creación de tablas")
+            st.write("4. Inserta datos de prueba (especialmente usuarios)")
+            
+            if st.button("🔄 Reintentar conexión"):
+                st.rerun()
     
     modo = st.radio(
         "Selecciona modo de acceso:",
@@ -70,10 +129,24 @@ def mostrar_formulario_login():
     with st.form("login_form"):
         if modo == "🔐 Modo Real":
             correo = st.text_input("📧 Correo Electrónico", placeholder="usuario@ejemplo.com")
+            st.caption("Usa: test@email.com / password123 (si existen datos)")
         else:
             correo = st.text_input("👤 Nombre de Usuario", placeholder="Ingresa cualquier nombre")
             
         contrasena = st.text_input("🔒 Contraseña", type="password", placeholder="••••••••")
+        
+        # Información sobre modos
+        with st.expander("💡 Información de modos"):
+            if modo == "🔐 Modo Real":
+                st.write("**Modo Real:** Conecta con la base de datos real")
+                st.write("• Requiere credenciales válidas en la BD")
+                st.write("• Necesita tablas y datos existentes")
+                st.write("• Acceso completo al sistema")
+            else:
+                st.write("**Modo Prueba:** Simula un usuario sin BD")
+                st.write("• Funciona sin conexión a base de datos")
+                st.write("• Perfecto para desarrollo y pruebas")
+                st.write("• Datos de demostración")
         
         submitted = st.form_submit_button("🚀 Ingresar al Sistema", use_container_width=True)
         
@@ -81,13 +154,17 @@ def mostrar_formulario_login():
             if correo and contrasena:
                 with st.spinner("Verificando credenciales..."):
                     if modo == "🔐 Modo Real":
-                        usuario = verificar_login_real(correo, contrasena)
-                        if usuario:
-                            st.session_state.usuario = usuario
-                            st.success(f"¡Bienvenido/a {usuario['nombre']}! 👋")
-                            st.rerun()
+                        if not conexion_ok:
+                            st.error("⚠️ No se puede verificar credenciales - Sin conexión a BD")
                         else:
-                            st.error("❌ Credenciales incorrectas o usuario no existe")
+                            usuario = verificar_login_real(correo, contrasena)
+                            if usuario:
+                                st.session_state.usuario = usuario
+                                st.success(f"¡Bienvenido/a {usuario['nombre']}! 👋")
+                                st.rerun()
+                            else:
+                                st.error("❌ Credenciales incorrectas o usuario no existe")
+                                st.info("💡 Asegúrate de que existan usuarios en la base de datos")
                     else:
                         st.session_state.usuario = {
                             'nombre': correo.title(),
@@ -108,6 +185,14 @@ def main():
     else:
         # Navegación entre módulos
         modulo_actual = st.session_state.current_module
+        
+        # Mostrar estado de conexión en el sidebar cuando esté logueado
+        with st.sidebar:
+            conexion_ok, mensaje_conexion = verificar_conexion_bd()
+            if conexion_ok:
+                st.success("🟢 BD Conectada")
+            else:
+                st.error("🔴 BD Desconectada")
         
         if modulo_actual == "miembros":
             mostrar_modulo_miembros()
