@@ -341,6 +341,7 @@ def mostrar_modulo_miembros():
         
         if st.button("👀 Ver Registro de Miembros", use_container_width=True, type="primary"):
             st.info("Mostrando registro de miembros...")
+            # Aquí iría la lógica para mostrar la tabla de miembros
         
         if st.button("✏️ Editar Información de Miembro", use_container_width=True):
             st.info("Funcionalidad de edición de miembros")
@@ -818,100 +819,87 @@ def mostrar_dashboard():
             st.session_state.modulo_actual = "cierre"
             st.rerun()
     
-    with col2:
-        # Módulo Configuración
-        st.markdown("""
-        <div class="module-card">
-            <div class="module-content">
-                <div class="module-icon" style="background-color: #64748b;">⚙️</div>
-                <h4 style="color: #5a32a3; margin: 1.1rem 0;">Configuración</h4>
-                <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Ajustes del grupo y reglamento</p>
-            </div>
+with col2:
+    # Módulo Configuración
+    st.markdown("""
+    <div class="module-card">
+        <div class="module-content">
+            <div class="module-icon" style="background: linear-gradient(90deg, #6f42c1, #5a32a3);">⚙️</div>
+            <h4 style="color: #5a32a3; margin: 0.4rem 0;">Configuración</h4>
+            <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Ajustes del sistema y permisos</p>
         </div>
-        """, unsafe_allow_html=True)
-        if st.button("Abrir", key="btn_configuracion", use_container_width=True, type="primary"):
-            st.session_state.modulo_actual = "configuracion"
-            st.rerun()
-    
-    # Sección de Estadísticas Rápidas
-    st.markdown("<h2 style='color: #5a32a3; margin-top: 2rem;'>📈 Estadísticas Rápidas</h2>", unsafe_allow_html=True)
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.markdown("""
-        <div class="stat-card stat-purple">
-            <p style="margin: 0; font-size: 0.8rem; color: #64748b;">Asistencia Promedio</p>
-            <p style="margin: 0; font-size: 1.5rem; font-weight: bold; color: #5a32a3;">92%</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if st.button("Abrir", key="btn_configuracion", use_container_width=True, type="primary"):
+        st.session_state.modulo_actual = "configuracion"
+        st.rerun()
+
+with col3:
+    # Espacio vacío o módulo adicional
+    st.markdown("""
+    <div class="module-card">
+        <div class="module-content">
+            <div class="module-icon" style="background-color: #9ca3af;">📁</div>
+            <h4 style="color: #5a32a3; margin: 0.4rem 0;">Otros</h4>
+            <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Accesos rápidos y utilidades</p>
         </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown("""
-        <div class="stat-card stat-green">
-            <p style="margin: 0; font-size: 0.8rem; color: #065f46;">Total Ahorrado (Este Mes)</p>
-            <p style="margin: 0; font-size: 1.2rem; font-weight: bold; color: #065f46;">$3,250.00</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown("""
-        <div class="stat-card stat-red">
-            <p style="margin: 0; font-size: 0.8rem; color: #991b1b;">Préstamos en Mora</p>
-            <p style="margin: 0; font-size: 1.5rem; font-weight: bold; color: #991b1b;">2</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col4:
-        st.markdown("""
-        <div class="stat-card stat-purple">
-            <p style="margin: 0; font-size: 0.8rem; color: #64748b;">Reuniones (Este Mes)</p>
-            <p style="margin: 0; font-size: 1.5rem; font-weight: bold; color: #5a32a3;">4</p>
-        </div>
-        """, unsafe_allow_html=True)
+    </div>
+    """, unsafe_allow_html=True)
+
+    if st.button("Abrir", key="btn_otros", use_container_width=True):
+        st.info("Módulo en desarrollo...")
+
+# FIN de mostrar_dashboard()
 
 # ==========================================
-# FLUJO PRINCIPAL
+# LÓGICA PRINCIPAL (inicio de la app)
 # ==========================================
-if st.session_state.usuario is None:
-    mostrar_login()
-else:
-    if st.session_state.modulo_actual == "dashboard":
+def main():
+    # Si no hay usuario en sesión, mostrar login
+    if not st.session_state.usuario:
+        mostrar_login()
+        return
+
+    # Si hay usuario, mostrar dashboard o el módulo seleccionado
+    modulo = st.session_state.modulo_actual or "dashboard"
+
+    if modulo == "dashboard":
         mostrar_dashboard()
-    elif st.session_state.modulo_actual == "miembros":
+    elif modulo == "miembros":
         aplicar_estilos()
         mostrar_sidebar()
         mostrar_modulo_miembros()
-    elif st.session_state.modulo_actual == "reuniones":
+    elif modulo == "reuniones":
         aplicar_estilos()
         mostrar_sidebar()
         mostrar_modulo_reuniones()
-    elif st.session_state.modulo_actual == "aportes":
+    elif modulo == "aportes":
         aplicar_estilos()
         mostrar_sidebar()
         mostrar_modulo_aportes()
-    elif st.session_state.modulo_actual == "prestamos":
+    elif modulo == "prestamos":
         aplicar_estilos()
         mostrar_sidebar()
         mostrar_modulo_prestamos()
-    elif st.session_state.modulo_actual == "multas":
+    elif modulo == "multas":
         aplicar_estilos()
         mostrar_sidebar()
         mostrar_modulo_multas()
-    elif st.session_state.modulo_actual == "reportes":
+    elif modulo == "reportes":
         aplicar_estilos()
         mostrar_sidebar()
         mostrar_modulo_reportes()
-    elif st.session_state.modulo_actual == "cierre":
+    elif modulo == "cierre":
         aplicar_estilos()
         mostrar_sidebar()
         mostrar_modulo_cierre()
-    elif st.session_state.modulo_actual == "configuracion":
+    elif modulo == "configuracion":
         aplicar_estilos()
         mostrar_sidebar()
         mostrar_modulo_configuracion()
+    else:
+        mostrar_dashboard()
 
 if __name__ == "__main__":
     main()
-
-
