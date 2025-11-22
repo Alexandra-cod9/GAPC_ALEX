@@ -167,7 +167,7 @@ def aplicar_estilos():
         border-radius: 15px;
         padding: 1.5rem;
         text-align: center;
-        height: 200px;
+        height: 220px; /* Aumentada la altura para más espacio */
         display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -186,22 +186,33 @@ def aplicar_estilos():
         color: white;
     }
     
-    /* Botones morados en recuadro */
+    /* Contenido del módulo con más espacio */
+    .module-content {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        margin-bottom: 1rem; /* Más espacio antes del botón */
+    }
+    
+    /* Botones morados en recuadro con más espacio */
     .purple-button-container {
         background: linear-gradient(90deg, #6f42c1, #5a32a3);
         color: white;
         border: none;
         border-radius: 8px;
-        padding: 0.5rem 1rem;
+        padding: 0.75rem 1rem; /* Más padding vertical */
         font-weight: bold;
         text-align: center;
         cursor: pointer;
         width: 100%;
-        margin-top: 0.5rem;
+        margin-top: 1rem; /* Más espacio arriba */
         display: flex;
         align-items: center;
         justify-content: center;
         transition: all 0.3s ease;
+        font-size: 1rem;
+        min-height: 45px; /* Altura mínima consistente */
     }
     
     .purple-button-container:hover {
@@ -286,6 +297,11 @@ def aplicar_estilos():
     .stButton button {
         width: 100%;
         margin-bottom: 0.5rem;
+    }
+    
+    /* Más espacio entre elementos */
+    .module-spacing {
+        margin-bottom: 2rem;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -426,7 +442,7 @@ def mostrar_dashboard():
         # Módulo Miembros
         st.markdown("""
         <div class="module-card">
-            <div>
+            <div class="module-content">
                 <div class="module-icon" style="background: linear-gradient(90deg, #8b5cf6, #6f42c1);">👥</div>
                 <h4 style="color: #5a32a3; margin: 0.5rem 0;">Miembros</h4>
                 <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Gestión de miembros del grupo</p>
@@ -441,7 +457,7 @@ def mostrar_dashboard():
         # Módulo Reuniones
         st.markdown("""
         <div class="module-card">
-            <div>
+            <div class="module-content">
                 <div class="module-icon" style="background-color: #6f42c1;">📅</div>
                 <h4 style="color: #5a32a3; margin: 0.5rem 0;">Reuniones</h4>
                 <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Calendario y registro de reuniones</p>
@@ -456,7 +472,7 @@ def mostrar_dashboard():
         # Módulo Aportes
         st.markdown("""
         <div class="module-card">
-            <div>
+            <div class="module-content">
                 <div class="module-icon" style="background-color: #10b981;">💰</div>
                 <h4 style="color: #5a32a3; margin: 0.5rem 0;">Aportes</h4>
                 <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Registro de aportes y ahorros</p>
@@ -474,7 +490,7 @@ def mostrar_dashboard():
         # Módulo Préstamos
         st.markdown("""
         <div class="module-card">
-            <div>
+            <div class="module-content">
                 <div class="module-icon" style="background-color: #eab308;">💳</div>
                 <h4 style="color: #5a32a3; margin: 0.5rem 0;">Préstamos</h4>
                 <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Gestión de préstamos y pagos</p>
@@ -489,7 +505,7 @@ def mostrar_dashboard():
         # Módulo Multas
         st.markdown("""
         <div class="module-card">
-            <div>
+            <div class="module-content">
                 <div class="module-icon" style="background-color: #ef4444;">⚠️</div>
                 <h4 style="color: #5a32a3; margin: 0.5rem 0;">Multas</h4>
                 <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Control de multas y sanciones</p>
@@ -504,7 +520,7 @@ def mostrar_dashboard():
         # Módulo Reportes
         st.markdown("""
         <div class="module-card">
-            <div>
+            <div class="module-content">
                 <div class="module-icon" style="background-color: #5a32a3;">📊</div>
                 <h4 style="color: #5a32a3; margin: 0.5rem 0;">Reportes</h4>
                 <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Reportes financieros y estadísticas</p>
@@ -522,7 +538,7 @@ def mostrar_dashboard():
         # Módulo Cierre de Período
         st.markdown("""
         <div class="module-card">
-            <div>
+            <div class="module-content">
                 <div class="module-icon" style="background-color: #4c2a85;">🔄</div>
                 <h4 style="color: #5a32a3; margin: 0.5rem 0;">Cierre de Período</h4>
                 <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Cierre de período y reparto</p>
@@ -537,7 +553,7 @@ def mostrar_dashboard():
         # Módulo Configuración
         st.markdown("""
         <div class="module-card">
-            <div>
+            <div class="module-content">
                 <div class="module-icon" style="background-color: #64748b;">⚙️</div>
                 <h4 style="color: #5a32a3; margin: 0.5rem 0;">Configuración</h4>
                 <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Ajustes del grupo y reglamento</p>
