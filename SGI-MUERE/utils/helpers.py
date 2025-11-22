@@ -1,23 +1,26 @@
-# utils/helpers.py
 import streamlit as st
 from datetime import datetime
 
 def formatear_fecha(fecha):
-    """Formatea fecha para mostrar"""
-    if fecha:
-        return fecha.strftime("%d/%m/%Y")
-    return ""
+    """Formatea fecha para mostrar en la interfaz"""
+    if isinstance(fecha, str):
+        return fecha
+    return fecha.strftime('%d/%m/%Y')
 
-def formatear_moneda(monto):
-    """Formatea monto como moneda"""
-    if monto:
-        return f"${monto:,.2f}"
-    return "$0.00"
+def mostrar_estado_badge(estado):
+    """Muestra un badge de estado con colores"""
+    colores = {
+        'activo': '🟢',
+        'pagado': '🔵', 
+        'mora': '🔴',
+        'presente': '✅',
+        'ausente': '❌'
+    }
+    return colores.get(estado, '⚪')
 
-def validar_campos_obligatorios(campos):
-    """Valida que los campos obligatorios no estén vacíos"""
-    for campo, valor in campos.items():
-        if not valor:
-            st.error(f"El campo '{campo}' es obligatorio")
-            return False
-    return True
+def inicializar_session_state():
+    """Inicializa variables de session_state si no existen"""
+    if 'usuario' not in st.session_state:
+        st.session_state.usuario = None
+    if 'id_grupo' not in st.session_state:
+        st.session_state.id_grupo = None
