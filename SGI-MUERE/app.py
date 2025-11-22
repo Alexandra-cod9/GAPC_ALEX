@@ -171,7 +171,7 @@ def aplicar_estilos():
         display: flex;
         flex-direction: column;
         justify-content: space-between;
-        margin-bottom: 1rem;
+        margin-bottom: 0.4rem;
     }
     
     .module-icon {
@@ -609,3 +609,4 @@ if st.session_state.usuario is None:
     mostrar_login()
 else:
     mostrar_dashboard()
+
