@@ -167,7 +167,7 @@ def aplicar_estilos():
         border-radius: 15px;
         padding: 1.5rem;
         text-align: center;
-        height: 180px;
+        height: 200px;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -186,26 +186,26 @@ def aplicar_estilos():
         color: white;
     }
     
-    /* Botones morados personalizados */
-    .stButton > button {
-        width: 100%;
-        margin-bottom: 0.5rem;
+    /* Botones morados en recuadro */
+    .purple-button-container {
+        background: linear-gradient(90deg, #6f42c1, #5a32a3);
+        color: white;
         border: none;
         border-radius: 8px;
         padding: 0.5rem 1rem;
         font-weight: bold;
+        text-align: center;
+        cursor: pointer;
+        width: 100%;
+        margin-top: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         transition: all 0.3s ease;
     }
     
-    /* Botones morados para los módulos */
-    .purple-button {
-        background: linear-gradient(90deg, #6f42c1, #5a32a3) !important;
-        color: white !important;
-        border: none !important;
-    }
-    
-    .purple-button:hover {
-        background: linear-gradient(90deg, #5a32a3, #4a2a8c) !important;
+    .purple-button-container:hover {
+        background: linear-gradient(90deg, #5a32a3, #4a2a8c);
         transform: translateY(-2px);
         box-shadow: 0 4px 8px rgba(106, 66, 193, 0.3);
     }
@@ -281,6 +281,12 @@ def aplicar_estilos():
         font-size: 20px;
         color: white;
     }
+    
+    /* Mejoras para los botones de Streamlit */
+    .stButton button {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -355,7 +361,13 @@ def mostrar_sidebar():
         if st.button("📅 Reuniones", use_container_width=True):
             st.rerun()
             
-        if st.button("💰 Finanzas", use_container_width=True):
+        if st.button("💰 Aportes", use_container_width=True):
+            st.rerun()
+            
+        if st.button("💳 Préstamos", use_container_width=True):
+            st.rerun()
+            
+        if st.button("⚠️ Multas", use_container_width=True):
             st.rerun()
             
         if st.button("📊 Reportes", use_container_width=True):
@@ -406,7 +418,7 @@ def mostrar_dashboard():
     # Sección: Módulos del Sistema
     st.markdown("<h2 style='color: #5a32a3; margin-top: 2rem;'>📋 Módulos del Sistema</h2>", unsafe_allow_html=True)
     
-    # Grid de módulos (3 columnas x 2 filas)
+    # Grid de módulos (3 columnas x 3 filas)
     # Fila 1
     col1, col2, col3 = st.columns(3)
     
@@ -419,20 +431,11 @@ def mostrar_dashboard():
                 <h4 style="color: #5a32a3; margin: 0.5rem 0;">Miembros</h4>
                 <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Gestión de miembros del grupo</p>
             </div>
+            <div class="purple-button-container" onclick="alert('Abriendo Miembros')">
+                Abrir
+            </div>
         </div>
         """, unsafe_allow_html=True)
-        # Botón morado
-        st.markdown("""
-        <style>
-        div[data-testid*="miembros_btn"] button {
-            background: linear-gradient(90deg, #6f42c1, #5a32a3) !important;
-            color: white !important;
-            border: none !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-        if st.button("Abrir", key="miembros_btn", use_container_width=True):
-            st.info("Abriendo módulo de Miembros...")
     
     with col2:
         # Módulo Reuniones
@@ -443,23 +446,47 @@ def mostrar_dashboard():
                 <h4 style="color: #5a32a3; margin: 0.5rem 0;">Reuniones</h4>
                 <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Calendario y registro de reuniones</p>
             </div>
+            <div class="purple-button-container" onclick="alert('Abriendo Reuniones')">
+                Abrir
+            </div>
         </div>
         """, unsafe_allow_html=True)
-        # Botón morado
-        st.markdown("""
-        <style>
-        div[data-testid*="reuniones_btn"] button {
-            background: linear-gradient(90deg, #6f42c1, #5a32a3) !important;
-            color: white !important;
-            border: none !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-        if st.button("Abrir", key="reuniones_btn", use_container_width=True):
-            st.info("Abriendo módulo de Reuniones...")
     
     with col3:
-        # Módulo Montes (Multas)
+        # Módulo Aportes
+        st.markdown("""
+        <div class="module-card">
+            <div>
+                <div class="module-icon" style="background-color: #10b981;">💰</div>
+                <h4 style="color: #5a32a3; margin: 0.5rem 0;">Aportes</h4>
+                <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Registro de aportes y ahorros</p>
+            </div>
+            <div class="purple-button-container" onclick="alert('Abriendo Aportes')">
+                Abrir
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Fila 2
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        # Módulo Préstamos
+        st.markdown("""
+        <div class="module-card">
+            <div>
+                <div class="module-icon" style="background-color: #eab308;">💳</div>
+                <h4 style="color: #5a32a3; margin: 0.5rem 0;">Préstamos</h4>
+                <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Gestión de préstamos y pagos</p>
+            </div>
+            <div class="purple-button-container" onclick="alert('Abriendo Préstamos')">
+                Abrir
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        # Módulo Multas
         st.markdown("""
         <div class="module-card">
             <div>
@@ -467,25 +494,13 @@ def mostrar_dashboard():
                 <h4 style="color: #5a32a3; margin: 0.5rem 0;">Multas</h4>
                 <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Control de multas y sanciones</p>
             </div>
+            <div class="purple-button-container" onclick="alert('Abriendo Multas')">
+                Abrir
+            </div>
         </div>
         """, unsafe_allow_html=True)
-        # Botón morado
-        st.markdown("""
-        <style>
-        div[data-testid*="multas_btn"] button {
-            background: linear-gradient(90deg, #6f42c1, #5a32a3) !important;
-            color: white !important;
-            border: none !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-        if st.button("Abrir", key="multas_btn", use_container_width=True):
-            st.info("Abriendo módulo de Multas...")
     
-    # Fila 2
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
+    with col3:
         # Módulo Reportes
         st.markdown("""
         <div class="module-card">
@@ -494,22 +509,16 @@ def mostrar_dashboard():
                 <h4 style="color: #5a32a3; margin: 0.5rem 0;">Reportes</h4>
                 <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Reportes financieros y estadísticas</p>
             </div>
+            <div class="purple-button-container" onclick="alert('Abriendo Reportes')">
+                Abrir
+            </div>
         </div>
         """, unsafe_allow_html=True)
-        # Botón morado
-        st.markdown("""
-        <style>
-        div[data-testid*="reportes_btn"] button {
-            background: linear-gradient(90deg, #6f42c1, #5a32a3) !important;
-            color: white !important;
-            border: none !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-        if st.button("Abrir", key="reportes_btn", use_container_width=True):
-            st.info("Abriendo módulo de Reportes...")
     
-    with col2:
+    # Fila 3
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
         # Módulo Cierre de Período
         st.markdown("""
         <div class="module-card">
@@ -518,22 +527,13 @@ def mostrar_dashboard():
                 <h4 style="color: #5a32a3; margin: 0.5rem 0;">Cierre de Período</h4>
                 <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Cierre de período y reparto</p>
             </div>
+            <div class="purple-button-container" onclick="alert('Abriendo Cierre de Período')">
+                Abrir
+            </div>
         </div>
         """, unsafe_allow_html=True)
-        # Botón morado
-        st.markdown("""
-        <style>
-        div[data-testid*="cierre_btn"] button {
-            background: linear-gradient(90deg, #6f42c1, #5a32a3) !important;
-            color: white !important;
-            border: none !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-        if st.button("Abrir", key="cierre_btn", use_container_width=True):
-            st.info("Abriendo módulo de Cierre de Período...")
     
-    with col3:
+    with col2:
         # Módulo Configuración
         st.markdown("""
         <div class="module-card">
@@ -542,20 +542,11 @@ def mostrar_dashboard():
                 <h4 style="color: #5a32a3; margin: 0.5rem 0;">Configuración</h4>
                 <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Ajustes del grupo y reglamento</p>
             </div>
+            <div class="purple-button-container" onclick="alert('Abriendo Configuración')">
+                Abrir
+            </div>
         </div>
         """, unsafe_allow_html=True)
-        # Botón morado
-        st.markdown("""
-        <style>
-        div[data-testid*="config_btn"] button {
-            background: linear-gradient(90deg, #6f42c1, #5a32a3) !important;
-            color: white !important;
-            border: none !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-        if st.button("Abrir", key="config_btn", use_container_width=True):
-            st.info("Abriendo módulo de Configuración...")
     
     # Sección de Estadísticas Rápidas
     st.markdown("<h2 style='color: #5a32a3; margin-top: 2rem;'>📈 Estadísticas Rápidas</h2>", unsafe_allow_html=True)
