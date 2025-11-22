@@ -92,7 +92,7 @@ def obtener_estadisticas_reales(id_grupo=None):
         if id_grupo:
             cursor.execute("""
                 SELECT COUNT(*) total FROM reunion
-                WHERE id_gruppo=%s AND MONTH(fecha)=MONTH(CURDATE()) AND YEAR(fecha)=YEAR(CURDATE())
+                WHERE id_grupo=%s AND MONTH(fecha)=MONTH(CURDATE()) AND YEAR(fecha)=YEAR(CURDATE())
             """, (id_grupo,))
         else:
             cursor.execute("""
@@ -106,7 +106,7 @@ def obtener_estadisticas_reales(id_grupo=None):
             cursor.execute("""
                 SELECT COALESCE(SUM(a.monto),0) total FROM aporte a
                 JOIN reunion r ON a.id_reunion=r.id_reunion
-                WHERE r.id_gruppo=%s
+                WHERE r.id_grupo=%s
             """, (id_grupo,))
         else:
             cursor.execute("SELECT COALESCE(SUM(monto),0) total FROM aporte")
@@ -210,3 +210,4 @@ if not st.session_state.usuario:
     mostrar_formulario_login()
 else:
     mostrar_dashboard_principal()
+
