@@ -444,7 +444,7 @@ def mostrar_dashboard():
         <div class="module-card">
             <div class="module-content">
                 <div class="module-icon" style="background: linear-gradient(90deg, #8b5cf6, #6f42c1);">👥</div>
-                <h4 style="color: #5a32a3; margin: 0.5rem 0;">Miembros</h4>
+                <h4 style="color: #5a32a3; margin: 1rem 0;">Miembros</h4>
                 <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Gestión de miembros del grupo</p>
             </div>
             <div class="purple-button-container" onclick="alert('Abriendo Miembros')">
@@ -459,7 +459,7 @@ def mostrar_dashboard():
         <div class="module-card">
             <div class="module-content">
                 <div class="module-icon" style="background-color: #6f42c1;">📅</div>
-                <h4 style="color: #5a32a3; margin: 1rem 0;">Reuniones</h4>
+                <h4 style="color: #5a32a3; margin: 0.5rem 0;">Reuniones</h4>
                 <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Calendario y registro de reuniones</p>
             </div>
             <div class="purple-button-container" onclick="alert('Abriendo Reuniones')">
@@ -609,6 +609,7 @@ if st.session_state.usuario is None:
     mostrar_login()
 else:
     mostrar_dashboard()
+
 
 
 
