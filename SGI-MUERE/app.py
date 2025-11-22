@@ -1,17 +1,9 @@
-from modules.auth.login import verificar_login_real
-from modules.dashboard.main import mostrar_dashboard_principal
-from modules.miembrogapc.miembro import mostrar_modulo_miembros
-from modules.reunion.reunion import mostrar_modulo_reuniones
-from modules.aportes.aporte import mostrar_modulo_aportes
-from modules.prestamo.prestamo import mostrar_modulo_prestamos
-from modules.multa.multa import mostrar_modulo_multas
-from modules.cierre.cierre import mostrar_modulo_cierre
-from modules.grupo.grupo import mostrar_modulo_grupo
 import streamlit as st
 import pymysql
 import pandas as pd
 from datetime import datetime
 import os
+
 # Configuración de la página
 st.set_page_config(
     page_title="Sistema GAPC",
@@ -462,24 +454,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-        
-        if modulo_actual == "miembros":
-            mostrar_modulo_miembros()
-        elif modulo_actual == "reuniones":
-            mostrar_modulo_reuniones()
-        elif modulo_actual == "aportes":
-            mostrar_modulo_aportes()
-        elif modulo_actual == "prestamos":
-            mostrar_modulo_prestamos()
-        elif modulo_actual == "multas":
-            mostrar_modulo_multas()
-        elif modulo_actual == "cierre":
-            mostrar_modulo_cierre()
-        elif modulo_actual == "grupo":
-            mostrar_modulo_grupo()
-        else:
-            mostrar_dashboard_principal()
-
-if __name__ == "__main__":
-    main()
-
