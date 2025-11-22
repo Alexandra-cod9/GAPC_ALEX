@@ -1,304 +1,176 @@
-import streamlit as st
-import pymysql
-import pandas as pd
-from datetime import datetime
-import os
-
-# Configuración de la página
-st.set_page_config(
-    page_title="Sistema GAPC",
-    page_icon="🏠",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
-# Inicializar session state
-if 'usuario' not in st.session_state:
-    st.session_state.usuario = None
-if 'id_grupo' not in st.session_state:
-    st.session_state.id_grupo = None
-
-# CSS personalizado - MÁS COMPACTO
-st.markdown("""
-<style>
-    .main-header {
-        color: #6f42c1;
-        text-align: center;
-        margin-bottom: 0.5rem;
-        font-size: 1.5rem;
-    }
-    .stButton button {
-        background-color: #6f42c1;
-        color: white;
-        border: none;
-        padding: 0.3rem 0.6rem;
-        border-radius: 0.3rem;
-        font-weight: bold;
-        font-size: 0.8rem;
-    }
-    .login-container {
-        max-width: 300px;
-        margin: 1rem auto;
-        padding: 1rem;
-        border: 1px solid #e0d1f9;
-        border-radius: 0.5rem;
-        background: #f8fafc;
-    }
-    .welcome-message {
-        background: linear-gradient(135deg, #6f42c1, #8b5cf6);
-        color: white;
-        padding: 0.8rem;
-        border-radius: 0.5rem;
-        text-align: center;
-        margin: 0.5rem 0;
-        font-size: 0.8rem;
-    }
-    .saldo-card {
-        background: linear-gradient(135deg, #059669, #10b981);
-        color: white;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        text-align: center;
-        margin: 0.5rem 0;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-    }
-    .metric-card {
-        background: white;
-        border: 1px solid #e2e8f0;
-        border-radius: 0.4rem;
-        padding: 0.6rem;
-        text-align: center;
-        margin: 0.2rem;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-    }
-    .module-button {
-        background: white;
-        color: #6f42c1;
-        border: 1px solid #6f42c1;
-        padding: 0.6rem;
-        border-radius: 0.4rem;
-        margin: 0.2rem;
-        font-weight: bold;
-        font-size: 0.75rem;
-        width: 100%;
-        text-align: center;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        height: 60px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    .module-button:hover {
-        background: #6f42c1;
-        color: white;
-        transform: translateY(-1px);
-    }
-    .sidebar-content {
-        font-size: 0.75rem;
-    }
-    .compact-text {
-        font-size: 0.8rem;
-        margin: 0.2rem 0;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# Función de conexión a BD - CLEVER CLOUD
-def obtener_conexion():
-    try:
-        conexion = pymysql.connect(
-            host='bhzcn4gxgbe5tcxihqd1-mysql.services.clever-cloud.com',
-            user='usv5pnvafxbrw5hs',
-            password='WiOSztB38WxsKuXjnQgT',
-            database='bhzcn4gxgbe5tcxihqd1',
-            port=3306,
-            charset='utf8mb4',
-            cursorclass=pymysql.cursors.DictCursor,
-            connect_timeout=10
-        )
-        return conexion
-    except Exception as e:
-        st.error(f"❌ Error de conexión: {e}")
-        return None
-
-# Función para obtener estadísticas reales
-def obtener_estadisticas_reales(id_grupo=None):
-    """Obtiene estadísticas reales de la base de datos"""
-    try:
-        conexion = obtener_conexion()
-        if conexion:
-            cursor = conexion.cursor()
-            
-            estadisticas = {}
-            
-            # Total de miembros
-            if id_grupo:
-                cursor.execute("SELECT COUNT(*) as total FROM miembrogapc WHERE id_grupo = %s", (id_grupo,))
-            else:
-                cursor.execute("SELECT COUNT(*) as total FROM miembrogapc")
-            resultado = cursor.fetchone()
-            estadisticas['total_miembros'] = resultado['total'] if resultado else 0
-            
-            # Préstamos activos (aprobados)
-            if id_grupo:
-                cursor.execute("""
-                    SELECT COUNT(*) as total 
-                    FROM prestamo p 
-                    JOIN miembrogapc m ON p.id_miembro = m.id_miembro 
-                    WHERE m.id_grupo = %s AND p.estado = 'aprobado'
-                """, (id_grupo,))
-            else:
-                cursor.execute("SELECT COUNT(*) as total FROM prestamo WHERE estado = 'aprobado'")
-            resultado = cursor.fetchone()
-            estadisticas['prestamos_activos'] = resultado['total'] if resultado else 0
-            
-            # Reuniones este mes
-            if id_grupo:
-                cursor.execute("""
-                    SELECT COUNT(*) as total 
-                    FROM reunion 
-                    WHERE id_gruppo = %s 
-                    AND MONTH(fecha) = MONTH(CURDATE()) 
-                    AND YEAR(fecha) = YEAR(CURDATE())
-                """, (id_grupo,))
-            else:
-                cursor.execute("""
-                    SELECT COUNT(*) as total 
-                    FROM reunion 
-                    WHERE MONTH(fecha) = MONTH(CURDATE()) 
-                    AND YEAR(fecha) = YEAR(CURDATE())
-                """)
-            resultado = cursor.fetchone()
-            estadisticas['reuniones_mes'] = resultado['total'] if resultado else 0
-            
-            # Total de aportes (SALDO ACTUAL)
-            if id_grupo:
-                cursor.execute("""
-                    SELECT COALESCE(SUM(a.monto), 0) as total 
-                    FROM aporte a
-                    JOIN reunion r ON a.id_reunion = r.id_reunion
-                    WHERE r.id_gruppo = %s
-                """, (id_grupo,))
-            else:
-                cursor.execute("""
-                    SELECT COALESCE(SUM(a.monto), 0) as total 
-                    FROM aporte a
-                    JOIN reunion r ON a.id_reunion = r.id_reunion
-                """)
-            resultado = cursor.fetchone()
-            estadisticas['saldo_actual'] = float(resultado['total']) if resultado and resultado['total'] else 0.0
-            
-            cursor.close()
-            conexion.close()
-            return estadisticas
-            
-    except Exception as e:
-        st.error(f"Error al obtener estadísticas: {e}")
-        return {
-            'total_miembros': 0,
-            'prestamos_activos': 0, 
-            'reuniones_mes': 0,
-            'saldo_actual': 0.0
-        }
-
-# FUNCIÓN PARA VERIFICAR LOGIN REAL
-def verificar_login_real(correo, contrasena):
-    """Verifica credenciales contra la base de datos"""
-    try:
-        conexion = obtener_conexion()
-        if conexion:
-            cursor = conexion.cursor()
-            
-            cursor.execute("""
-                SELECT m.id_miembro, m.nombre, m.correo, m.contrasena, r.tipo_rol, m.id_grupo
-                FROM miembrogapc m
-                JOIN rol r ON m.id_rol = r.id_rol
-                WHERE m.correo = %s AND m.contrasena IS NOT NULL
-            """, (correo,))
-            
-            usuario = cursor.fetchone()
-            cursor.close()
-            conexion.close()
-            
-            if usuario:
-                if usuario['contrasena'] == contrasena:
-                    return {
-                        'id': usuario['id_miembro'],
-                        'nombre': usuario['nombre'],
-                        'correo': usuario['correo'],
-                        'tipo_rol': usuario['tipo_rol'],
-                        'id_grupo': usuario['id_grupo']
-                    }
-        
-        return None
-        
-    except Exception as e:
-        st.error(f"Error al verificar login: {e}")
-        return None
-
-# FUNCIÓN DE LOGIN
-def mostrar_formulario_login():
-    """Muestra el formulario de login"""
+# MÓDULO DE GESTIÓN DE MIEMBROS
+def mostrar_modulo_miembros():
+    """Muestra el módulo de gestión de miembros"""
     
-    st.markdown('<div class="main-header">🏠 Sistema GAPC</div>', unsafe_allow_html=True)
+    usuario = st.session_state.usuario
+    id_grupo = usuario.get('id_grupo', 1)
     
-    # Probar conexión primero
-    if st.button("🔍 Probar Conexión a Base de Datos"):
-        conexion = obtener_conexion()
-        if conexion:
-            st.success("✅ ¡Conexión exitosa a Clever Cloud!")
-            conexion.close()
+    # Header del módulo
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown('<div class="main-header">👥 Gestión de Miembros</div>', unsafe_allow_html=True)
+    
+    # Botón para volver al dashboard
+    if st.button("← Volver al Dashboard", use_container_width=False):
+        st.session_state.current_module = None
+        st.rerun()
+    
+    st.markdown("---")
+    
+    # Obtener miembros reales de la base de datos
+    def obtener_miembros_grupo(id_grupo):
+        """Obtiene los miembros del grupo desde la base de datos"""
+        try:
+            conexion = obtener_conexion()
+            if conexion:
+                cursor = conexion.cursor()
+                cursor.execute("""
+                    SELECT m.id_miembro, m.nombre, m.telefono, m.dui, m.correo, r.tipo_rol
+                    FROM miembrogapc m
+                    JOIN rol r ON m.id_rol = r.id_rol
+                    WHERE m.id_grupo = %s
+                    ORDER BY m.nombre
+                """, (id_grupo,))
+                miembros = cursor.fetchall()
+                cursor.close()
+                conexion.close()
+                return miembros
+        except Exception as e:
+            st.error(f"Error al obtener miembros: {e}")
+        return []
+    
+    # Obtener roles disponibles
+    def obtener_roles():
+        """Obtiene los roles disponibles"""
+        try:
+            conexion = obtener_conexion()
+            if conexion:
+                cursor = conexion.cursor()
+                cursor.execute("SELECT id_rol, tipo_rol FROM rol")
+                roles = cursor.fetchall()
+                cursor.close()
+                conexion.close()
+                return {rol['tipo_rol']: rol['id_rol'] for rol in roles}
+        except Exception as e:
+            st.error(f"Error al obtener roles: {e}")
+        return {}
+    
+    # Pestañas para diferentes funcionalidades
+    tab1, tab2, tab3 = st.tabs(["📋 Lista de Miembros", "➕ Agregar Miembro", "📊 Estadísticas"])
+    
+    with tab1:
+        st.subheader("Lista de Miembros del Grupo")
+        
+        # Cargar miembros
+        miembros = obtener_miembros_grupo(id_grupo)
+        
+        if miembros:
+            # Mostrar en dataframe
+            df_miembros = pd.DataFrame(miembros)
+            st.dataframe(
+                df_miembros,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "id_miembro": "ID",
+                    "nombre": "Nombre",
+                    "telefono": "Teléfono", 
+                    "dui": "DUI",
+                    "correo": "Correo",
+                    "tipo_rol": "Rol"
+                }
+            )
+            
+            # Métricas rápidas
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Total Miembros", len(miembros))
+            with col2:
+                roles_count = df_miembros['tipo_rol'].value_counts()
+                st.metric("Socios", roles_count.get('socio', 0))
+            with col3:
+                st.metric("Directivos", len(df_miembros) - roles_count.get('socio', 0))
+            with col4:
+                st.metric("Con Email", df_miembros['correo'].notna().sum())
+                
         else:
-            st.error("❌ No se pudo conectar a la base de datos")
+            st.warning("No se encontraron miembros en este grupo")
     
-    modo = st.radio(
-        "Selecciona modo de acceso:",
-        ["🧪 Modo Prueba", "🔐 Modo Real"],
-        horizontal=True
-    )
-    
-    st.markdown("""
-        <div class="login-container">
-    """, unsafe_allow_html=True)
-    
-    st.markdown('<p class="compact-text"><strong>🔐 Iniciar Sesión</strong></p>', unsafe_allow_html=True)
-    
-    with st.form("login_form"):
-        if modo == "🔐 Modo Real":
-            correo = st.text_input("📧 Correo Electrónico", placeholder="usuario@ejemplo.com")
-        else:
-            correo = st.text_input("👤 Nombre de Usuario", placeholder="Ingresa cualquier nombre")
+    with tab2:
+        st.subheader("Agregar Nuevo Miembro")
+        
+        with st.form("form_agregar_miembro"):
+            col1, col2 = st.columns(2)
             
-        contrasena = st.text_input("🔒 Contraseña", type="password", placeholder="••••••••")
-        
-        submitted = st.form_submit_button("🚀 Ingresar al Sistema", use_container_width=True)
-        
-        if submitted:
-            if correo and contrasena:
-                with st.spinner("Verificando credenciales..."):
-                    if modo == "🔐 Modo Real":
-                        usuario = verificar_login_real(correo, contrasena)
-                        if usuario:
-                            st.session_state.usuario = usuario
-                            st.success(f"¡Bienvenido/a {usuario['nombre']}! 👋")
+            with col1:
+                nombre = st.text_input("Nombre Completo *", placeholder="Ej: María González")
+                telefono = st.text_input("Teléfono *", placeholder="Ej: 7777-8888")
+                dui = st.text_input("DUI *", placeholder="Ej: 123456789")
+                
+            with col2:
+                correo = st.text_input("Correo Electrónico", placeholder="Ej: usuario@email.com")
+                roles_dict = obtener_roles()
+                rol_seleccionado = st.selectbox("Rol *", options=list(roles_dict.keys()))
+                contrasena = st.text_input("Contraseña (opcional)", type="password", 
+                                         placeholder="Solo para acceso al sistema")
+            
+            st.markdown("** * Campos obligatorios**")
+            
+            if st.form_submit_button("✅ Guardar Miembro", use_container_width=True):
+                if nombre and telefono and dui and rol_seleccionado:
+                    try:
+                        conexion = obtener_conexion()
+                        if conexion:
+                            cursor = conexion.cursor()
+                            cursor.execute("""
+                                INSERT INTO miembrogapc 
+                                (nombre, telefono, dui, correo, contrasena, id_grupo, id_rol)
+                                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                            """, (
+                                nombre, 
+                                telefono, 
+                                dui, 
+                                correo if correo else None,
+                                contrasena if contrasena else None,
+                                id_grupo,
+                                roles_dict[rol_seleccionado]
+                            ))
+                            conexion.commit()
+                            cursor.close()
+                            conexion.close()
+                            st.success(f"✅ Miembro {nombre} agregado exitosamente!")
                             st.rerun()
-                        else:
-                            st.error("❌ Credenciales incorrectas o usuario no existe")
-                    else:
-                        st.session_state.usuario = {
-                            'nombre': correo.title(),
-                            'tipo_rol': 'Usuario',
-                            'id_grupo': 1
-                        }
-                        st.success(f"¡Bienvenido/a {st.session_state.usuario['nombre']}! 👋 (Modo Prueba)")
-                        st.rerun()
-            else:
-                st.warning("⚠️ Por favor completa todos los campos")
+                    except Exception as e:
+                        st.error(f"Error al guardar miembro: {e}")
+                else:
+                    st.warning("⚠️ Por favor completa los campos obligatorios")
     
-    st.markdown("</div>", unsafe_allow_html=True)
+    with tab3:
+        st.subheader("Estadísticas de Miembros")
+        
+        miembros = obtener_miembros_grupo(id_grupo)
+        if miembros:
+            df_miembros = pd.DataFrame(miembros)
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Gráfico de roles
+                if 'tipo_rol' in df_miembros.columns:
+                    roles_count = df_miembros['tipo_rol'].value_counts()
+                    st.bar_chart(roles_count)
+                    st.caption("Distribución de Roles")
+            
+            with col2:
+                # Métricas adicionales
+                st.metric("Miembros con teléfono", len(df_miembros))
+                st.metric("Miembros con correo", df_miembros['correo'].notna().sum())
+                st.metric("Miembros con DUI", df_miembros['dui'].notna().sum())
+        
+        else:
+            st.info("No hay datos para mostrar estadísticas")
 
-# FUNCIÓN DE DASHBOARD MÁS COMPACTO
+# FUNCIÓN DE DASHBOARD MÁS COMPACTO (ACTUALIZADA)
 def mostrar_dashboard_principal():
     """Muestra el dashboard principal más compacto"""
     
@@ -331,6 +203,7 @@ def mostrar_dashboard_principal():
         with col2:
             if st.button("🚪 Salir", use_container_width=True):
                 st.session_state.usuario = None
+                st.session_state.current_module = None
                 st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
     
@@ -399,7 +272,8 @@ def mostrar_dashboard_principal():
     
     with col1:
         if st.button("👥 **Miembros**\nGestión", use_container_width=True, key="miembros"):
-            st.info("🔧 Módulo Miembros - En desarrollo")
+            st.session_state.current_module = "miembros"
+            st.rerun()
     
     with col2:
         if st.button("📅 **Reuniones**\nCalendario", use_container_width=True, key="reuniones"):
@@ -435,23 +309,20 @@ def mostrar_dashboard_principal():
     # Información del sistema más compacta
     st.markdown("---")
     st.markdown(f'<p class="compact-text">*Última actualización: {datetime.now().strftime("%d/%m/%Y %H:%M")}*</p>', unsafe_allow_html=True)
-    
-    # Información de conexión (oculta pero disponible)
-    with st.expander("🔧 Información Técnica"):
-        col1, col2 = st.columns(2)
-        with col1:
-            conexion_status = "Conectada ✅ (Clever Cloud)" if obtener_conexion() else "Desconectada ❌"
-            st.info(f"**Base de datos:** {conexion_status}")
-        with col2:
-            st.info("**Sistema GAPC v1.0**")
 
-# APLICACIÓN PRINCIPAL
+# APLICACIÓN PRINCIPAL ACTUALIZADA
 def main():
+    # Inicializar session state para módulos
+    if 'current_module' not in st.session_state:
+        st.session_state.current_module = None
+    
     if not st.session_state.usuario:
         mostrar_formulario_login()
     else:
-        mostrar_dashboard_principal()
+        if st.session_state.current_module == "miembros":
+            mostrar_modulo_miembros()
+        else:
+            mostrar_dashboard_principal()
 
 if __name__ == "__main__":
     main()
-
