@@ -223,55 +223,6 @@ def aplicar_estilos():
         width: 100%;
     }
     
-    /* Panel de notificaciones */
-    .notification-card {
-        background-color: white;
-        border: 2px solid #c9b3f5;
-        border-radius: 15px;
-        padding: 1.5rem;
-    }
-    
-    .notification-item {
-        padding: 1rem;
-        border-radius: 8px;
-        margin-bottom: 0.5rem;
-        position: relative;
-    }
-    
-    .notification-item::before {
-        content: "";
-        position: absolute;
-        left: 0;
-        top: 0;
-        height: 100%;
-        width: 5px;
-        border-radius: 4px 0 0 4px;
-    }
-    
-    .notification-warning {
-        background-color: #fef3c7;
-    }
-    
-    .notification-warning::before {
-        background-color: #eab308;
-    }
-    
-    .notification-danger {
-        background-color: #fee2e2;
-    }
-    
-    .notification-danger::before {
-        background-color: #ef4444;
-    }
-    
-    .notification-info {
-        background-color: #f3ebff;
-    }
-    
-    .notification-info::before {
-        background-color: #6f42c1;
-    }
-    
     /* Estadísticas rápidas */
     .stat-card {
         padding: 1rem;
@@ -289,15 +240,6 @@ def aplicar_estilos():
     
     .stat-red {
         background-color: #fee2e2;
-    }
-    
-    /* Header de bienvenida */
-    .welcome-header {
-        background: linear-gradient(90deg, #6f42c1, #5a32a3);
-        color: white;
-        padding: 2rem;
-        border-radius: 15px;
-        margin-bottom: 2rem;
     }
     
     /* Botones del sidebar */
@@ -442,24 +384,9 @@ def mostrar_dashboard():
     # Mostrar sidebar
     mostrar_sidebar()
     
-    # Header de bienvenida
-    fecha_actual = datetime.now().strftime("%A, %d de %B de %Y")
-    hora_actual = datetime.now().strftime("%H:%M")
-    
-    st.markdown(f"""
-    <div class="welcome-header">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <h1 style="margin: 0; color: white;">👋 ¡Bienvenido/a, {usuario['nombre']}!</h1>
-                <p style="margin: 0; color: #e0d1f9;">{usuario['tipo_rol']} - Grupo {usuario['id_grupo']}</p>
-            </div>
-            <div style="text-align: right;">
-                <p style="margin: 0; color: white;">📅 {fecha_actual}</p>
-                <p style="margin: 0; font-size: 1.5rem; font-weight: bold; color: #c9b3f9;">🕐 {hora_actual}</p>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    # Título principal
+    st.markdown(f"<h1 style='color: #5a32a3;'>👋 ¡Bienvenido/a, {usuario['nombre']}!</h1>", unsafe_allow_html=True)
+    st.markdown(f"<p style='color: #64748b; font-size: 1.2rem;'>{usuario['tipo_rol']} - Grupo {usuario['id_grupo']}</p>", unsafe_allow_html=True)
     
     # Obtener estadísticas
     stats = obtener_estadisticas(usuario["id_grupo"])
@@ -617,84 +544,42 @@ def mostrar_dashboard():
             </div>
             """, unsafe_allow_html=True)
     
-    # Sección inferior: Notificaciones y Estadísticas
-    col1, col2 = st.columns([7, 3])
+    # Sección de Estadísticas Rápidas
+    st.markdown("<h2 style='color: #5a32a3; margin-top: 2rem;'>📈 Estadísticas Rápidas</h2>", unsafe_allow_html=True)
+    
+    col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        # Panel de Notificaciones
-        st.markdown("""
-        <div class="notification-card">
-            <h3 style="color: #5a32a3; margin-top: 0;">🔔 Notificaciones y Alertas</h3>
-        """, unsafe_allow_html=True)
-        
-        # Notificaciones
-        st.markdown("""
-        <div class="notification-item notification-warning">
-            <p style="font-weight: bold; margin: 0; color: #1e293b;">⚠️ Préstamo próximo a vencer</p>
-            <p style="margin: 0; color: #64748b; font-size: 0.9rem;">Ana García - Vence en 3 días ($500.00)</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("""
-        <div class="notification-item notification-danger">
-            <p style="font-weight: bold; margin: 0; color: #1e293b;">🚨 Préstamo VENCIDO</p>
-            <p style="margin: 0; color: #64748b; font-size: 0.9rem;">Rosa Martínez - $750.00</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("""
-        <div class="notification-item notification-info">
-            <p style="font-weight: bold; margin: 0; color: #1e293b;">📅 Próxima Reunión</p>
-            <p style="margin: 0; color: #64748b; font-size: 0.9rem;">En 2 días - 22/11/2024 a las 14:00</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("""
-        <div class="notification-item notification-warning">
-            <p style="font-weight: bold; margin: 0; color: #1e293b;">💰 3 Multas Pendientes</p>
-            <p style="margin: 0; color: #64748b; font-size: 0.9rem;">Total: $45.00</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("</div>", unsafe_allow_html=True)
-    
-    with col2:
-        # Panel de Estadísticas Rápidas
-        st.markdown("""
-        <div class="notification-card">
-            <h3 style="color: #5a32a3; margin-top: 0;">📈 Estadísticas Rápidas</h3>
-        """, unsafe_allow_html=True)
-        
-        # Estadísticas
         st.markdown("""
         <div class="stat-card stat-purple">
             <p style="margin: 0; font-size: 0.8rem; color: #64748b;">Asistencia Promedio</p>
             <p style="margin: 0; font-size: 1.5rem; font-weight: bold; color: #5a32a3;">92%</p>
         </div>
         """, unsafe_allow_html=True)
-        
+    
+    with col2:
         st.markdown("""
         <div class="stat-card stat-green">
             <p style="margin: 0; font-size: 0.8rem; color: #065f46;">Total Ahorrado (Este Mes)</p>
             <p style="margin: 0; font-size: 1.2rem; font-weight: bold; color: #065f46;">$3,250.00</p>
         </div>
         """, unsafe_allow_html=True)
-        
+    
+    with col3:
         st.markdown("""
         <div class="stat-card stat-red">
             <p style="margin: 0; font-size: 0.8rem; color: #991b1b;">⚠️ Préstamos en Mora</p>
             <p style="margin: 0; font-size: 1.5rem; font-weight: bold; color: #991b1b;">2</p>
         </div>
         """, unsafe_allow_html=True)
-        
+    
+    with col4:
         st.markdown("""
         <div class="stat-card stat-purple">
             <p style="margin: 0; font-size: 0.8rem; color: #64748b;">Reuniones (Este Mes)</p>
             <p style="margin: 0; font-size: 1.5rem; font-weight: bold; color: #5a32a3;">4</p>
         </div>
         """, unsafe_allow_html=True)
-        
-        st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ==========================================
