@@ -1,23 +1,21 @@
-# Paleta de colores del sistema
-COLORES = {
-    'primario': '#6f42c1',
-    'secundario': '#8b5cf6', 
-    'accento': '#a78bfa',
-    'exito': '#10b981',
-    'peligro': '#ef4444',
-    'advertencia': '#eab308',
-}
-
-# Roles del sistema
-ROLES = {
-    'PRESIDENTE': 'Presidente',
-    'SECRETARIA': 'Secretaria', 
-    'TESORERA': 'Tesorera',
-    'PROMOTORA': 'Promotora',
-    'SOCIO': 'socio'
-}
+# config/constants.py
 
 # Estados
-ESTADOS_PRESTAMO = ['aprobado', 'rechazado']
-ESTADOS_ASISTENCIA = ['presente', 'ausente']
-TIPOS_APORTE = ['Ahorro', 'Rifa', 'Otros']
+ESTADOS_MIEMBRO = ["activo", "inactivo", "suspendido"]
+ESTADOS_PRESTAMO = ["activo", "pagado", "vencido", "cancelado"]
+ESTADOS_MULTA = ["pendiente", "pagada", "condonada"]
+
+# Tipos de aporte
+TIPOS_APORTE = [
+    "ahorro",
+    "rifa", 
+    "pago",
+    "donación",
+    "otros"
+]
+
+# Configuración de la aplicación
+CONFIG_APP = {
+    "nombre_app": "Sistema GAPC",
+    "version": "1.0.0"
+}
