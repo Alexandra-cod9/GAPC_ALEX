@@ -1,7 +1,9 @@
+# config/conexion.py
 import pymysql
 import streamlit as st
 
 def obtener_conexion():
+    """Establece y retorna una conexión a la base de datos"""
     try:
         conexion = pymysql.connect(
             host='bhzcn4gxgbe5tcxihqd1-mysql.services.clever-cloud.com',
@@ -15,5 +17,5 @@ def obtener_conexion():
         )
         return conexion
     except Exception as e:
-        st.error(f"❌ Error al conectar a la base de datos: {e}")
+        st.error(f"❌ Error de conexión a la base de datos: {e}")
         return None
