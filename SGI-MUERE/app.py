@@ -1,3 +1,4 @@
+import streamlit as st
 import pymysql
 import pandas as pd
 from datetime import datetime
@@ -800,7 +801,7 @@ def mostrar_dashboard():
             st.session_state.modulo_actual = "reportes"
             st.rerun()
     
-       # Fila 3
+    # Fila 3
     col1, col2, col3 = st.columns(3)
     
     with col1:
@@ -823,80 +824,4 @@ def mostrar_dashboard():
         st.markdown("""
         <div class="module-card">
             <div class="module-content">
-                <div class="module-icon" style="background: linear-gradient(90deg, #6f42c1, #5a32a3);">⚙️</div>
-                <h4 style="color: #5a32a3; margin: 0.4rem 0;">Configuración</h4>
-                <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Ajustes del sistema y permisos</p>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        if st.button("Abrir", key="btn_configuracion", use_container_width=True, type="primary"):
-            st.session_state.modulo_actual = "configuracion"
-            st.rerun()
-    
-    with col3:
-        # Espacio vacío o módulo adicional
-        st.markdown("""
-        <div class="module-card">
-            <div class="module-content">
-                <div class="module-icon" style="background-color: #9ca3af;">📁</div>
-                <h4 style="color: #5a32a3; margin: 0.4rem 0;">Otros</h4>
-                <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Accesos rápidos y utilidades</p>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        if st.button("Abrir", key="btn_otros", use_container_width=True):
-            st.info("Módulo en desarrollo...")
-
-# FIN de mostrar_dashboard()
-
-# ==========================================
-# LÓGICA PRINCIPAL (inicio de la app)
-# ==========================================
-def main():
-    # Si no hay usuario en sesión, mostrar login
-    if not st.session_state.usuario:
-        mostrar_login()
-        return
-
-    # Si hay usuario, mostrar dashboard o el módulo seleccionado
-    modulo = st.session_state.modulo_actual or "dashboard"
-
-    if modulo == "dashboard":
-        mostrar_dashboard()
-    elif modulo == "miembros":
-        aplicar_estilos()
-        mostrar_sidebar()
-        mostrar_modulo_miembros()
-    elif modulo == "reuniones":
-        aplicar_estilos()
-        mostrar_sidebar()
-        mostrar_modulo_reuniones()
-    elif modulo == "aportes":
-        aplicar_estilos()
-        mostrar_sidebar()
-        mostrar_modulo_aportes()
-    elif modulo == "prestamos":
-        aplicar_estilos()
-        mostrar_sidebar()
-        mostrar_modulo_prestamos()
-    elif modulo == "multas":
-        aplicar_estilos()
-        mostrar_sidebar()
-        mostrar_modulo_multas()
-    elif modulo == "reportes":
-        aplicar_estilos()
-        mostrar_sidebar()
-        mostrar_modulo_reportes()
-    elif modulo == "cierre":
-        aplicar_estilos()
-        mostrar_sidebar()
-        mostrar_modulo_cierre()
-    elif modulo == "configuracion":
-        aplicar_estilos()
-        mostrar_sidebar()
-        mostrar_modulo_configuracion()
-    else:
-        mostrar_dashboard()
-
-if __name__ == "__main__":
-    main()
+                <div class="module-icon
