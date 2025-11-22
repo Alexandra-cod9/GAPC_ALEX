@@ -474,7 +474,7 @@ def mostrar_dashboard():
         <div class="module-card">
             <div class="module-content">
                 <div class="module-icon" style="background-color: #10b981;">💰</div>
-                <h4 style="color: #5a32a3; margin: 0.5rem 0;">Aportes</h4>
+                <h4 style="color: #5a32a3; margin: 1.1rem 0;">Aportes</h4>
                 <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Registro de aportes y ahorros</p>
             </div>
             <div class="purple-button-container" onclick="alert('Abriendo Aportes')">
@@ -492,7 +492,7 @@ def mostrar_dashboard():
         <div class="module-card">
             <div class="module-content">
                 <div class="module-icon" style="background-color: #eab308;">💳</div>
-                <h4 style="color: #5a32a3; margin: 0.5rem 0;">Préstamos</h4>
+                <h4 style="color: #5a32a3; margin: 1.1rem 0;">Préstamos</h4>
                 <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Gestión de préstamos y pagos</p>
             </div>
             <div class="purple-button-container" onclick="alert('Abriendo Préstamos')">
@@ -507,7 +507,7 @@ def mostrar_dashboard():
         <div class="module-card">
             <div class="module-content">
                 <div class="module-icon" style="background-color: #ef4444;">⚠️</div>
-                <h4 style="color: #5a32a3; margin: 0.5rem 0;">Multas</h4>
+                <h4 style="color: #5a32a3; margin: 1.1rem 0;">Multas</h4>
                 <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Control de multas y sanciones</p>
             </div>
             <div class="purple-button-container" onclick="alert('Abriendo Multas')">
@@ -555,7 +555,7 @@ def mostrar_dashboard():
         <div class="module-card">
             <div class="module-content">
                 <div class="module-icon" style="background-color: #64748b;">⚙️</div>
-                <h4 style="color: #5a32a3; margin: 0.5rem 0;">Configuración</h4>
+                <h4 style="color: #5a32a3; margin: 1.1rem 0;">Configuración</h4>
                 <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Ajustes del grupo y reglamento</p>
             </div>
             <div class="purple-button-container" onclick="alert('Abriendo Configuración')">
@@ -609,6 +609,7 @@ if st.session_state.usuario is None:
     mostrar_login()
 else:
     mostrar_dashboard()
+
 
 
 
