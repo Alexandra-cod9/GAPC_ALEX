@@ -186,16 +186,28 @@ def aplicar_estilos():
         color: white;
     }
     
-    .module-button {
-        background-color: #6f42c1;
-        color: white;
+    /* Botones morados personalizados */
+    .stButton > button {
+        width: 100%;
+        margin-bottom: 0.5rem;
         border: none;
         border-radius: 8px;
         padding: 0.5rem 1rem;
         font-weight: bold;
-        cursor: pointer;
-        width: 100%;
-        margin-top: 0.5rem;
+        transition: all 0.3s ease;
+    }
+    
+    /* Botones morados para los módulos */
+    .purple-button {
+        background: linear-gradient(90deg, #6f42c1, #5a32a3) !important;
+        color: white !important;
+        border: none !important;
+    }
+    
+    .purple-button:hover {
+        background: linear-gradient(90deg, #5a32a3, #4a2a8c) !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(106, 66, 193, 0.3);
     }
     
     /* Estadísticas rápidas */
@@ -268,12 +280,6 @@ def aplicar_estilos():
         margin-right: 1rem;
         font-size: 20px;
         color: white;
-    }
-    
-    /* Mejoras para los botones de Streamlit */
-    .stButton button {
-        width: 100%;
-        margin-bottom: 0.5rem;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -415,6 +421,16 @@ def mostrar_dashboard():
             </div>
         </div>
         """, unsafe_allow_html=True)
+        # Botón morado
+        st.markdown("""
+        <style>
+        div[data-testid*="miembros_btn"] button {
+            background: linear-gradient(90deg, #6f42c1, #5a32a3) !important;
+            color: white !important;
+            border: none !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
         if st.button("Abrir", key="miembros_btn", use_container_width=True):
             st.info("Abriendo módulo de Miembros...")
     
@@ -429,6 +445,16 @@ def mostrar_dashboard():
             </div>
         </div>
         """, unsafe_allow_html=True)
+        # Botón morado
+        st.markdown("""
+        <style>
+        div[data-testid*="reuniones_btn"] button {
+            background: linear-gradient(90deg, #6f42c1, #5a32a3) !important;
+            color: white !important;
+            border: none !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
         if st.button("Abrir", key="reuniones_btn", use_container_width=True):
             st.info("Abriendo módulo de Reuniones...")
     
@@ -442,6 +468,16 @@ def mostrar_dashboard():
                 <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Control de multas y sanciones</p>
             </div>
         </div>
+        """, unsafe_allow_html=True)
+        # Botón morado
+        st.markdown("""
+        <style>
+        div[data-testid*="multas_btn"] button {
+            background: linear-gradient(90deg, #6f42c1, #5a32a3) !important;
+            color: white !important;
+            border: none !important;
+        }
+        </style>
         """, unsafe_allow_html=True)
         if st.button("Abrir", key="multas_btn", use_container_width=True):
             st.info("Abriendo módulo de Multas...")
@@ -460,6 +496,16 @@ def mostrar_dashboard():
             </div>
         </div>
         """, unsafe_allow_html=True)
+        # Botón morado
+        st.markdown("""
+        <style>
+        div[data-testid*="reportes_btn"] button {
+            background: linear-gradient(90deg, #6f42c1, #5a32a3) !important;
+            color: white !important;
+            border: none !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
         if st.button("Abrir", key="reportes_btn", use_container_width=True):
             st.info("Abriendo módulo de Reportes...")
     
@@ -474,6 +520,16 @@ def mostrar_dashboard():
             </div>
         </div>
         """, unsafe_allow_html=True)
+        # Botón morado
+        st.markdown("""
+        <style>
+        div[data-testid*="cierre_btn"] button {
+            background: linear-gradient(90deg, #6f42c1, #5a32a3) !important;
+            color: white !important;
+            border: none !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
         if st.button("Abrir", key="cierre_btn", use_container_width=True):
             st.info("Abriendo módulo de Cierre de Período...")
     
@@ -487,6 +543,16 @@ def mostrar_dashboard():
                 <p style="color: #64748b; font-size: 0.8rem; margin: 0;">Ajustes del grupo y reglamento</p>
             </div>
         </div>
+        """, unsafe_allow_html=True)
+        # Botón morado
+        st.markdown("""
+        <style>
+        div[data-testid*="config_btn"] button {
+            background: linear-gradient(90deg, #6f42c1, #5a32a3) !important;
+            color: white !important;
+            border: none !important;
+        }
+        </style>
         """, unsafe_allow_html=True)
         if st.button("Abrir", key="config_btn", use_container_width=True):
             st.info("Abriendo módulo de Configuración...")
