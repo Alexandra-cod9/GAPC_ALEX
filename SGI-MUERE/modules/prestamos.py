@@ -117,16 +117,16 @@ def mostrar_configuracion_grupo():
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.metric("💰 Interés Mensual", f"${tasa_interes:.2f} por $10")
+        st.metric("💰 Interés Mensual", f"${configuracion['tasa_interes_mensual']:.2f} por $10")
     
     with col2:
-        st.metric("📊 Límite Préstamo", f"{porcentaje_maximo}% del ahorro")
+        st.metric("📊 Límite Préstamo", f"{configuracion['porcentaje_maximo_prestamo']}% del ahorro")
     
     with col3:
-        st.metric("📅 Plazo Máximo", f"{plazo_maximo} meses")
+        st.metric("📅 Plazo Máximo", f"{configuracion['plazo_maximo_meses']} meses")
     
     with col4:
-        estado = "✅ Múltiples" if permitir_multiples else "❌ Único"
+        estado = "✅ Múltiples" if configuracion['permitir_multiples_prestamos'] else "❌ Único"
         st.metric("🔒 Préstamos", estado)
 
 def obtener_configuracion_grupo():
@@ -238,9 +238,42 @@ def mostrar_nuevo_prestamo():
     - 🔒 **Múltiples:** {'Permitidos' if configuracion['permitir_multiples_prestamos'] else 'No permitidos'}
     """)
     
+    # Obtener lista de miembros disponibles
+    miembros_disponibles = obtener_miembros_disponibles(configuracion)
+    
+    if not miembros_disponibles:
+        st.warning("⚠️ No hay miembros disponibles para solicitar préstamos en este momento.")
+        return
+    
     with st.form("form_nuevo_prestamo"):
-        # Buscar miembro
-        miembro_seleccionado = buscar_miembro_prestamo(configuracion)
+        # Selector de miembro
+        opciones = []
+        miembros_validos = []
+        
+        for miembro in miembros_disponibles:
+            if miembro.get('puede_solicitar', False):
+                opciones.append(f"{miembro['nombre']} (Ahorro: ${miembro['ahorro_actual']:,.2f})")
+                miembros_validos.append(miembro)
+            else:
+                opciones.append(f"❌ {miembro['nombre']} ({miembro.get('motivo_rechazo', 'No disponible')})")
+        
+        if not miembros_validos:
+            st.warning("⚠️ No hay miembros elegibles para préstamos.")
+            st.form_submit_button("Cerrar", disabled=True)
+            return
+        
+        miembro_seleccionado_nombre = st.selectbox(
+            "👤 Selecciona el miembro solicitante:",
+            opciones,
+            key="selector_miembro_prestamo"
+        )
+        
+        # Encontrar el miembro seleccionado
+        miembro_seleccionado = None
+        for miembro in miembros_validos:
+            if miembro['nombre'] in miembro_seleccionado_nombre:
+                miembro_seleccionado = miembro
+                break
         
         if miembro_seleccionado:
             st.markdown("---")
@@ -321,14 +354,18 @@ def mostrar_nuevo_prestamo():
                 """)
             
             # Botón de envío
-            if st.form_submit_button("✅ Solicitar Préstamo", use_container_width=True):
+            submit_button = st.form_submit_button("✅ Solicitar Préstamo", use_container_width=True)
+            
+            if submit_button:
                 if monto_prestamo > 0 and proposito:
                     solicitar_prestamo(miembro_seleccionado, monto_prestamo, plazo_meses, proposito, fecha_solicitud, detalles)
                 else:
                     st.error("❌ Completa todos los campos obligatorios")
+        else:
+            st.form_submit_button("Cerrar", disabled=True)
 
-def buscar_miembro_prestamo(configuracion):
-    """Busca y valida un miembro para préstamo"""
+def obtener_miembros_disponibles(configuracion):
+    """Obtiene lista de miembros disponibles para préstamos"""
     try:
         conexion = obtener_conexion()
         if conexion:
@@ -356,61 +393,29 @@ def buscar_miembro_prestamo(configuracion):
             cursor.close()
             conexion.close()
             
-            if miembros:
-                # Filtrar miembros que no pueden solicitar préstamo
-                miembros_validos = []
-                for miembro in miembros:
-                    puede_solicitar = True
-                    motivo = ""
-                    
-                    # Verificar si ya tiene préstamos activos (si no se permiten múltiples)
-                    if not configuracion['permitir_multiples_prestamos'] and miembro['prestamos_activos'] > 0:
-                        puede_solicitar = False
-                        motivo = "❌ Ya tiene un préstamo activo"
-                    
-                    # Verificar si tiene ahorro suficiente
-                    if miembro['ahorro_actual'] <= 0:
-                        puede_solicitar = False
-                        motivo = "❌ No tiene ahorro suficiente"
-                    
-                    if puede_solicitar:
-                        miembros_validos.append(miembro)
-                    else:
-                        # Agregar con motivo para mostrar en la lista
-                        miembro['motivo_rechazo'] = motivo
-                        miembros_validos.append(miembro)
+            # Validar cada miembro
+            for miembro in miembros:
+                puede_solicitar = True
+                motivo = ""
                 
-                # Crear lista de opciones
-                opciones = []
-                for miembro in miembros_validos:
-                    if 'motivo_rechazo' in miembro:
-                        opciones.append(f"❌ {miembro['id_miembro']} - {miembro['nombre']} ({miembro['motivo_rechazo']})")
-                    else:
-                        opciones.append(f"✅ {miembro['id_miembro']} - {miembro['nombre']} (Ahorro: ${miembro['ahorro_actual']:,.2f})")
+                # Verificar si ya tiene préstamos activos (si no se permiten múltiples)
+                if not configuracion['permitir_multiples_prestamos'] and miembro['prestamos_activos'] > 0:
+                    puede_solicitar = False
+                    motivo = "Ya tiene un préstamo activo"
                 
-                miembro_seleccionado = st.selectbox(
-                    "👤 Selecciona el miembro solicitante:",
-                    opciones,
-                    key="selector_miembro_prestamo"
-                )
+                # Verificar si tiene ahorro suficiente
+                if miembro['ahorro_actual'] <= 0:
+                    puede_solicitar = False
+                    motivo = "No tiene ahorro suficiente"
                 
-                if miembro_seleccionado and miembro_seleccionado.startswith("✅"):
-                    # Extraer ID del miembro seleccionado
-                    miembro_id = int(miembro_seleccionado.split(" - ")[0].replace("✅ ", ""))
-                    miembro_info = next(m for m in miembros_validos if m['id_miembro'] == miembro_id and 'motivo_rechazo' not in m)
-                    return miembro_info
-                elif miembro_seleccionado and miembro_seleccionado.startswith("❌"):
-                    st.error("Este miembro no puede solicitar préstamos en este momento")
-                    return None
+                miembro['puede_solicitar'] = puede_solicitar
+                miembro['motivo_rechazo'] = motivo
+            
+            return miembros
                     
-            else:
-                st.info("📝 No hay miembros en este grupo.")
-                return None
-                
     except Exception as e:
         st.error(f"❌ Error al cargar miembros: {e}")
-    
-    return None
+        return []
 
 def calcular_detalles_prestamo(monto, plazo_meses, tasa_interes):
     """Calcula los detalles del préstamo"""
