@@ -315,3 +315,16 @@ def main():
 
 if __name__ == "__main__":
     main()
+# APLICACIÓN PRINCIPAL
+def main():
+    if not st.session_state.usuario:
+        mostrar_formulario_login()
+    else:
+        try:
+            # Usar el sistema de navegación por módulos
+            mostrar_modulo()
+        except Exception as e:
+            st.error(f"Error crítico: {str(e)}")
+            st.info("Volviendo al dashboard...")
+            st.session_state.modulo_actual = 'dashboard'
+            st.rerun()
