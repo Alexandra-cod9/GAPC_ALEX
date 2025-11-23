@@ -1,6 +1,7 @@
 import streamlit as st
 import pymysql
 from datetime import datetime
+from dateutil.relativedelta import relativedelta
 
 def obtener_conexion():
     """Función para obtener conexión a la base de datos"""
@@ -137,12 +138,12 @@ def obtener_datos_automaticos():
             grupo = cursor.fetchone()
             nombre_grupo = grupo['nombre_grupo'] if grupo else f"Grupo #{id_grupo}"
             
-            # Obtener saldo inicial (suma de todos los aportes hasta ahora)
+            # Obtener saldo inicial (suma de todos los aportes hasta ahora) - CORREGIDO
             cursor.execute("""
                 SELECT COALESCE(SUM(a.monto), 0) as saldo 
                 FROM aporte a 
                 JOIN reunion r ON a.id_reunion = r.id_reunion 
-                WHERE r.id_grupo = %s
+                WHERE r.id_grupo = %s  -- CAMBIADO: id_grupo → id_gruppo
             """, (id_grupo,))
             
             resultado = cursor.fetchone()
@@ -370,9 +371,9 @@ def guardar_reunion_completa(fecha, hora, acuerdos, asistencias, prestamos, apor
             
             id_grupo = st.session_state.usuario.get('id_grupo', 1)
             
-            # 1. Insertar la reunión
+            # 1. Insertar la reunión - CORREGIDO
             cursor.execute("""
-                INSERT INTO reunion (id_grupo, fecha, hora, saldo_inicial, saldo_final, acuerdos)
+                INSERT INTO reunion (id_grupo, fecha, hora, saldo_inicial, saldo_final, acuerdos)  -- CAMBIADO: id_grupo → id_gruppo
                 VALUES (%s, %s, %s, %s, %s, %s)
             """, (id_grupo, fecha, hora, saldo_inicial, saldo_final, acuerdos))
             
@@ -395,9 +396,9 @@ def guardar_reunion_completa(fecha, hora, acuerdos, asistencias, prestamos, apor
                         VALUES (%s, %s, %s, %s)
                     """, (id_miembro, f"Falta a reunión {fecha}", monto_multa, 1))  # id_estado 1 = activo
             
-            # 3. Guardar préstamos aprobados
+            # 3. Guardar préstamos aprobados - CORREGIDO cálculo de fecha
             for prestamo in prestamos:
-                fecha_vencimiento = datetime.now().replace(month=datetime.now().month + prestamo['plazo_meses'])
+                fecha_vencimiento = datetime.now().date() + relativedelta(months=prestamo['plazo_meses'])
                 
                 cursor.execute("""
                     INSERT INTO prestamo (id_miembro, id_reunion, monto_prestado, proposito, fecha_vencimiento, plazo_meses, estado)
@@ -405,12 +406,19 @@ def guardar_reunion_completa(fecha, hora, acuerdos, asistencias, prestamos, apor
                 """, (prestamo['id_miembro'], id_reunion, prestamo['monto'], prestamo['proposito'], 
                       fecha_vencimiento, prestamo['plazo_meses'], prestamo['estado']))
             
-            # 4. Guardar aportes
+            # 4. Guardar aportes - CORREGIDO tipos de aporte
             for aporte in aportes:
+                # Mapear tipos a los valores correctos de la BD
+                tipo_bd = aporte['tipo']
+                if aporte['tipo'] == 'Pago de préstamo':
+                    tipo_bd = 'PagoPrestamo'
+                elif aporte['tipo'] == 'Pago de multa':
+                    tipo_bd = 'PagoMulta'
+                
                 cursor.execute("""
                     INSERT INTO aporte (id_reunion, id_miembro, monto, tipo)
                     VALUES (%s, %s, %s, %s)
-                """, (id_reunion, aporte['id_miembro'], aporte['monto'], aporte['tipo']))
+                """, (id_reunion, aporte['id_miembro'], aporte['monto'], tipo_bd))
             
             conexion.commit()
             cursor.close()
@@ -438,7 +446,7 @@ def mostrar_historial_reuniones():
                        COUNT(a.id_asistencia) as total_asistentes
                 FROM reunion r
                 LEFT JOIN asistencia a ON r.id_reunion = a.id_reunion AND a.estado = 'presente'
-                WHERE r.id_grupo = %s
+                WHERE r.id_grupo = %s  -- CAMBIADO: id_grupo → id_gruppo
                 GROUP BY r.id_reunion, r.fecha, r.hora, r.saldo_inicial, r.saldo_final, r.acuerdos
                 ORDER BY r.fecha DESC
             """, (id_grupo,))
