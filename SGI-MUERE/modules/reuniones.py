@@ -41,9 +41,9 @@ def probar_conexion_y_tablas():
             total = resultado['total'] if resultado and 'total' in resultado else 'desconocido'
             st.info(f"✅ Tabla 'reunion' accesible. Registros: {total}")
 
-            # Probar INSERT simple
+            # Probar INSERT simple - CORREGIDO
             cursor.execute("""
-                INSERT INTO reunion (id_grupo, fecha, hora, saldo_inicial, saldo_final, acuerdos) 
+                INSERT INTO reunion (id_gruppo, fecha, hora, saldo_inicial, saldo_final, acuerdos)  -- CAMBIADO
                 VALUES (%s, %s, %s, %s, %s, %s)
             """, (1, '2024-01-01', '10:00:00', 1000.00, 1200.00, 'Prueba diagnóstico'))
 
@@ -201,12 +201,12 @@ def obtener_datos_automaticos():
             grupo = cursor.fetchone()
             nombre_grupo = grupo['nombre_grupo'] if grupo else f"Grupo #{id_grupo}"
             
-            # Obtener saldo inicial (suma de todos los aportes hasta ahora)
+            # Obtener saldo inicial (suma de todos los aportes hasta ahora) - CORREGIDO
             cursor.execute("""
                 SELECT COALESCE(SUM(a.monto), 0) as saldo 
                 FROM aporte a 
                 JOIN reunion r ON a.id_reunion = r.id_reunion 
-                WHERE r.id_grupo = %s
+                WHERE r.id_gruppo = %s  -- CAMBIADO: id_grupo → id_gruppo
             """, (id_grupo,))
             
             resultado = cursor.fetchone()
@@ -461,9 +461,9 @@ def guardar_reunion_completa(fecha, hora, acuerdos, asistencias, prestamos, apor
 
         st.info(f"🔍 Intentando guardar reunión para grupo: {id_grupo}")
 
-        # 1. Insertar la reunión
+        # 1. Insertar la reunión - CORREGIDO
         cursor.execute("""
-            INSERT INTO reunion (id_grupo, fecha, hora, saldo_inicial, saldo_final, acuerdos)
+            INSERT INTO reunion (id_gruppo, fecha, hora, saldo_inicial, saldo_final, acuerdos)  -- CAMBIADO: id_grupo → id_gruppo
             VALUES (%s, %s, %s, %s, %s, %s)
         """, (id_grupo, fecha, hora, saldo_inicial, saldo_final, acuerdos))
 
@@ -499,8 +499,9 @@ def guardar_reunion_completa(fecha, hora, acuerdos, asistencias, prestamos, apor
 
         st.info(f"🔍 Préstamos guardados: {len(prestamos)}")
 
-        # 4. Guardar aportes
+        # 4. Guardar aportes - CORREGIDO tipos de aporte
         for aporte in aportes:
+            # Mapear tipos a los valores correctos de la BD
             tipo_bd = aporte['tipo']
             if aporte['tipo'] == 'Pago de préstamo':
                 tipo_bd = 'PagoPrestamo'
@@ -540,12 +541,13 @@ def mostrar_historial_reuniones():
             
             id_grupo = st.session_state.usuario.get('id_grupo', 1)
             
+            # CORREGIDO: id_grupo → id_gruppo
             cursor.execute("""
                 SELECT r.id_reunion, r.fecha, r.hora, r.saldo_inicial, r.saldo_final, r.acuerdos,
                        COUNT(a.id_asistencia) as total_asistentes
                 FROM reunion r
                 LEFT JOIN asistencia a ON r.id_reunion = a.id_reunion AND a.estado = 'presente'
-                WHERE r.id_grupo = %s
+                WHERE r.id_gruppo = %s  -- CAMBIADO: id_grupo → id_gruppo
                 GROUP BY r.id_reunion, r.fecha, r.hora, r.saldo_inicial, r.saldo_final, r.acuerdos
                 ORDER BY r.fecha DESC
             """, (id_grupo,))
