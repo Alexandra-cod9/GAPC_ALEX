@@ -16,4 +16,3 @@ def mostrar_modulo_configuracion():
     
     st.subheader("Configuración del Sistema")
     st.info("🛠️ Módulo de Configuración - En desarrollo")
-    
