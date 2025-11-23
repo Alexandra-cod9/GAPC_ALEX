@@ -1,15 +1,4 @@
 import streamlit as st
-from modules import (
-    dashboard, 
-    miembros, 
-    reuniones, 
-    aportes, 
-    prestamos, 
-    multas, 
-    reportes, 
-    cierre, 
-    info_grupo
-)
 
 def mostrar_modulo():
     """Muestra el módulo actual seleccionado"""
@@ -17,22 +6,32 @@ def mostrar_modulo():
     
     # Contenido específico de cada módulo
     if modulo == 'dashboard':
-        dashboard.mostrar_dashboard_principal()
+        from modules.dashboard import mostrar_dashboard_principal
+        mostrar_dashboard_principal()
     elif modulo == 'miembros':
-        miembros.mostrar_modulo_miembros()
+        from modules.miembros import mostrar_modulo_miembros
+        mostrar_modulo_miembros()
     elif modulo == 'reuniones':
-        reuniones.mostrar_modulo_reuniones()
+        from modules.reuniones import mostrar_modulo_reuniones
+        mostrar_modulo_reuniones()
     elif modulo == 'aportes':
-        aportes.mostrar_modulo_aportes()
+        from modules.aportes import mostrar_modulo_aportes
+        mostrar_modulo_aportes()
     elif modulo == 'prestamos':
-        prestamos.mostrar_modulo_prestamos()
+        from modules.prestamos import mostrar_modulo_prestamos
+        mostrar_modulo_prestamos()
     elif modulo == 'multas':
-        multas.mostrar_modulo_multas()
+        from modules.multas import mostrar_modulo_multas
+        mostrar_modulo_multas()
     elif modulo == 'reportes':
-        reportes.mostrar_modulo_reportes()
+        from modules.reportes import mostrar_modulo_reportes
+        mostrar_modulo_reportes()
     elif modulo == 'cierre':
-        cierre.mostrar_modulo_cierre()
+        from modules.cierre import mostrar_modulo_cierre
+        mostrar_modulo_cierre()
     elif modulo == 'configuracion':
-        info_grupo.mostrar_modulo_info_grupo()
+        from modules.info_grupo import mostrar_modulo_info_grupo
+        mostrar_modulo_info_grupo()
     else:
-        dashboard.mostrar_dashboard_principal()
+        from modules.dashboard import mostrar_dashboard_principal
+        mostrar_dashboard_principal()
