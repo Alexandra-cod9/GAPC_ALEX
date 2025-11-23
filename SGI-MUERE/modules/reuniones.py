@@ -132,7 +132,7 @@ def obtener_datos_automaticos():
                 SELECT COALESCE(SUM(a.monto), 0) as saldo 
                 FROM aporte a 
                 JOIN reunion r ON a.id_reunion = r.id_reunion 
-                WHERE r.id_gruppo = %s
+                WHERE r.id_grupo = %s
             """, (id_grupo,))
             
             resultado = cursor.fetchone()
@@ -329,7 +329,7 @@ def guardar_reunion_completa(fecha, hora, acuerdos, asistencias, prestamos, apor
             
             # 1. Insertar la reunión
             cursor.execute("""
-                INSERT INTO reunion (id_gruppo, fecha, hora, saldo_inicial, saldo_final, acuerdos)
+                INSERT INTO reunion (id_grupo, fecha, hora, saldo_inicial, saldo_final, acuerdos)
                 VALUES (%s, %s, %s, %s, %s, %s)
             """, (id_grupo, fecha, hora, saldo_inicial, saldo_final, acuerdos))
             
@@ -395,7 +395,7 @@ def mostrar_historial_reuniones():
                        COUNT(a.id_asistencia) as total_asistentes
                 FROM reunion r
                 LEFT JOIN asistencia a ON r.id_reunion = a.id_reunion AND a.estado = 'presente'
-                WHERE r.id_gruppo = %s
+                WHERE r.id_grupo = %s
                 GROUP BY r.id_reunion, r.fecha, r.hora, r.saldo_inicial, r.saldo_final, r.acuerdos
                 ORDER BY r.fecha DESC
             """, (id_grupo,))
@@ -421,3 +421,4 @@ def mostrar_historial_reuniones():
                 
     except Exception as e:
         st.error(f"❌ Error al cargar historial: {e}")
+
