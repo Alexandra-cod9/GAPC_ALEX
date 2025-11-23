@@ -100,7 +100,7 @@ def mostrar_modulo_reuniones():
         mostrar_historial_reuniones()
 
 # ---------------------------------------------------
-# Interfaz para nueva reunión (SIMPLIFICADA)
+# Interfaz para nueva reunión (CORREGIDA)
 # ---------------------------------------------------
 def mostrar_nueva_reunion():
     """Interfaz para crear una nueva reunión"""
@@ -128,60 +128,61 @@ def mostrar_nueva_reunion():
     
     st.markdown("---")
     
-    # 2. Datos básicos de la reunión
-    st.subheader("📅 Información de la Reunión")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        fecha_reunion = st.date_input("Fecha de la reunión *", value=datetime.now(), key="fecha_reunion")
-    with col2:
-        hora_reunion = st.time_input("Hora de la reunión *", value=datetime.now().time(), key="hora_reunion")
-    
-    acuerdos = st.text_area("📝 Acuerdos de la reunión", 
-                           placeholder="Ej: Se acordó comprar materiales para...\nTareas asignadas: Juan - llevar acta...",
-                           key="acuerdos_reunion")
+    # 2. Datos de la reunión en un formulario principal
+    with st.form("form_nueva_reunion", clear_on_submit=False):
+        st.subheader("📅 Información de la Reunión")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            fecha_reunion = st.date_input("Fecha de la reunión *", value=datetime.now(), key="fecha_reunion")
+        with col2:
+            hora_reunion = st.time_input("Hora de la reunión *", value=datetime.now().time(), key="hora_reunion")
+        
+        acuerdos = st.text_area("📝 Acuerdos de la reunión", 
+                               placeholder="Ej: Se acordó comprar materiales para...\nTareas asignadas: Juan - llevar acta...",
+                               key="acuerdos_reunion")
 
-    st.markdown("---")
-    
-    # 3. Registro de asistencia
-    st.subheader("🧍 Asistencia de Miembros")
-    asistencias = registrar_asistencia()
-    
-    st.markdown("---")
-    
-    # 4. Movimientos de la reunión (FUERA del formulario)
-    st.subheader("💸 Movimientos de la Reunión")
-    
-    # 4A. Préstamos
-    st.write("**📤 Préstamos Solicitados**")
-    prestamos_otorgados = procesar_prestamos_simplificado(saldo_inicial)
-    
-    # 4B. Aportes
-    st.write("**📥 Aportes Realizados**")
-    aportes_realizados = procesar_aportes_simplificado()
-    
-    st.markdown("---")
-    
-    # 5. Cálculo de saldo final
-    saldo_final = calcular_saldo_final(saldo_inicial, prestamos_otorgados, aportes_realizados)
-    
-    st.success(f"**🧮 Saldo Final Calculado:** ${saldo_final:,.2f}")
-    
-    # Botón de guardar reunión (FUERA del formulario)
-    if st.button("💾 Guardar Reunión Completa", type="primary", use_container_width=True):
-        if not fecha_reunion or not hora_reunion:
-            st.error("❌ Fecha y hora son obligatorios")
-        elif len(asistencias) == 0:
-            st.error("❌ Debe registrar la asistencia de al menos un miembro")
-        else:
-            guardar_reunion_completa(
-                fecha_reunion, hora_reunion, acuerdos, asistencias, 
-                prestamos_otorgados, aportes_realizados, saldo_inicial, saldo_final
-            )
-            # Limpiar listas temporales después de guardar
-            st.session_state.prestamos_temporales = []
-            st.session_state.aportes_temporales = []
-            st.success("✅ Reunión guardada exitosamente!")
+        st.markdown("---")
+        
+        # 3. Registro de asistencia
+        st.subheader("🧍 Asistencia de Miembros")
+        asistencias = registrar_asistencia()
+        
+        # 4. Movimientos de la reunión (DENTRO del mismo formulario)
+        st.subheader("💸 Movimientos de la Reunión")
+        
+        # 4A. Préstamos
+        st.write("**📤 Préstamos Solicitados**")
+        prestamos_otorgados = procesar_prestamos_form(saldo_inicial)
+        
+        # 4B. Aportes
+        st.write("**📥 Aportes Realizados**")
+        aportes_realizados = procesar_aportes_form()
+        
+        st.markdown("---")
+        
+        # 5. Cálculo de saldo final
+        saldo_final = calcular_saldo_final(saldo_inicial, prestamos_otorgados, aportes_realizados)
+        
+        st.success(f"**🧮 Saldo Final Calculado:** ${saldo_final:,.2f}")
+        
+        # Botón de guardar reunión (DENTRO del formulario)
+        submitted = st.form_submit_button("💾 Guardar Reunión Completa", type="primary", use_container_width=True)
+        
+        if submitted:
+            if not fecha_reunion or not hora_reunion:
+                st.error("❌ Fecha y hora son obligatorios")
+            elif len(asistencias) == 0:
+                st.error("❌ Debe registrar la asistencia de al menos un miembro")
+            else:
+                guardar_reunion_completa(
+                    fecha_reunion, hora_reunion, acuerdos, asistencias, 
+                    prestamos_otorgados, aportes_realizados, saldo_inicial, saldo_final
+                )
+                # Limpiar listas temporales después de guardar
+                st.session_state.prestamos_temporales = []
+                st.session_state.aportes_temporales = []
+                st.success("✅ Listas temporales limpiadas. Puede crear una nueva reunión.")
 
 # ---------------------------------------------------
 # Obtener datos automáticos
@@ -222,7 +223,7 @@ def obtener_datos_automaticos():
     return "Grupo", 0.0
 
 # ---------------------------------------------------
-# Registrar asistencia
+# Registrar asistencia (CORREGIDA)
 # ---------------------------------------------------
 def registrar_asistencia():
     """Registra la asistencia de miembros"""
@@ -248,13 +249,17 @@ def registrar_asistencia():
             asistencias = {}
             st.write("**Marque ✅ los miembros que asistieron:**")
             
-            for miembro in miembros:
+            # Usar un contador único para las keys
+            if 'asistencia_counter' not in st.session_state:
+                st.session_state.asistencia_counter = 0
+            
+            for i, miembro in enumerate(miembros):
                 col1, col2 = st.columns([3, 1])
                 with col1:
                     st.write(f"👤 {miembro['nombre']}")
                 with col2:
                     # Checkbox por miembro con key única
-                    key = f"asist_{miembro['id_miembro']}"
+                    key = f"asist_{miembro['id_miembro']}_{st.session_state.asistencia_counter}"
                     asistio = st.checkbox("Asistió", value=True, key=key, label_visibility="collapsed")
                     asistencias[miembro['id_miembro']] = asistio
             
@@ -266,10 +271,10 @@ def registrar_asistencia():
     return {}
 
 # ---------------------------------------------------
-# Procesar préstamos (SIMPLIFICADO)
+# Procesar préstamos (CORREGIDO - VERSIÓN PARA FORM)
 # ---------------------------------------------------
-def procesar_prestamos_simplificado(saldo_inicial):
-    """Procesa solicitudes de préstamos durante la reunión (versión simplificada)"""
+def procesar_prestamos_form(saldo_inicial):
+    """Procesa solicitudes de préstamos durante la reunión (versión para formulario)"""
     
     # Mostrar préstamos ya agregados
     if st.session_state.prestamos_temporales:
@@ -282,11 +287,13 @@ def procesar_prestamos_simplificado(saldo_inicial):
             with col2:
                 st.write(f"Plazo: {prestamo['plazo_meses']} meses")
             with col3:
-                if st.button("🗑️", key=f"del_prest_{i}"):
+                # Usar st.form_submit_button en lugar de st.button dentro del formulario
+                eliminar_prestamo = st.checkbox("Eliminar", key=f"del_prest_{i}", label_visibility="collapsed")
+                if eliminar_prestamo:
                     st.session_state.prestamos_temporales.pop(i)
                     st.rerun()
     
-    # Formulario para agregar NUEVO préstamo
+    # Sección para agregar NUEVO préstamo (sin botones dentro del formulario)
     with st.expander("➕ Agregar Nuevo Préstamo", expanded=True):
         try:
             conexion = obtener_conexion()
@@ -309,7 +316,7 @@ def procesar_prestamos_simplificado(saldo_inicial):
                 conexion.close()
                 
                 if miembros:
-                    # Selector de miembro
+                    # Selector de miembro mejorado
                     opciones_miembros = {f"{m['nombre']} (Ahorro: ${m['ahorro']:,.2f})": m for m in miembros}
                     miembro_seleccionado = st.selectbox(
                         "👤 Miembro solicitante:",
@@ -334,7 +341,10 @@ def procesar_prestamos_simplificado(saldo_inicial):
                                              placeholder="Ej: Compra de materiales, Emergencia médica...",
                                              key="proposito_prestamo")
                     
-                    if st.button("✅ Agregar Préstamo", key="agregar_prestamo_btn"):
+                    # En lugar de botón, usar checkbox para agregar
+                    agregar_prestamo = st.checkbox("Agregar este préstamo a la lista", key="agregar_prestamo_check")
+                    
+                    if agregar_prestamo:
                         if monto_prestamo > 0 and proposito.strip():
                             miembro = opciones_miembros[miembro_seleccionado]
                             
@@ -366,10 +376,10 @@ def procesar_prestamos_simplificado(saldo_inicial):
     return st.session_state.prestamos_temporales
 
 # ---------------------------------------------------
-# Procesar aportes (SIMPLIFICADO)
+# Procesar aportes (CORREGIDO - VERSIÓN PARA FORM)
 # ---------------------------------------------------
-def procesar_aportes_simplificado():
-    """Procesa los aportes durante la reunión (versión simplificada)"""
+def procesar_aportes_form():
+    """Procesa los aportes durante la reunión (versión para formulario)"""
     
     # Mostrar aportes ya agregados
     if st.session_state.aportes_temporales:
@@ -381,11 +391,13 @@ def procesar_aportes_simplificado():
             with col2:
                 st.write(f"Tipo: {aporte['tipo']}")
             with col3:
-                if st.button("🗑️", key=f"del_aport_{i}"):
+                # Usar checkbox en lugar de botón dentro del formulario
+                eliminar_aporte = st.checkbox("Eliminar", key=f"del_aport_{i}", label_visibility="collapsed")
+                if eliminar_aporte:
                     st.session_state.aportes_temporales.pop(i)
                     st.rerun()
     
-    # Formulario para agregar NUEVO aporte
+    # Sección para agregar NUEVO aporte (sin botones dentro del formulario)
     with st.expander("💰 Registrar Nuevo Aporte", expanded=True):
         try:
             conexion = obtener_conexion()
@@ -422,7 +434,10 @@ def procesar_aportes_simplificado():
                                                       step=10.0, 
                                                       key="monto_aporte_input")
                     
-                    if st.button("➕ Agregar Aporte", key="agregar_aporte_btn"):
+                    # En lugar de botón, usar checkbox para agregar
+                    agregar_aporte = st.checkbox("Agregar este aporte a la lista", key="agregar_aporte_check")
+                    
+                    if agregar_aporte:
                         if miembro_seleccionado and monto_aporte > 0:
                             miembro = opciones_miembros[miembro_seleccionado]
                             
