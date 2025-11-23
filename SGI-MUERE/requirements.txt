@@ -1,6 +1,0 @@
-streamlit
-pymysql
-python-dotenv
-bcrypt
-pandas
-plotly
