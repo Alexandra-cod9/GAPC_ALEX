@@ -1,4 +1,2 @@
-# Exportar funciones de utils
-from .navegacion import mostrar_modulo
-
-__all__ = ['mostrar_modulo']
+# Utilidades del sistema GAPC
+# Este archivo hace que Python trate la carpeta como un paquete
