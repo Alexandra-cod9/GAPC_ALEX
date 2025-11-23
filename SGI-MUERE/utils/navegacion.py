@@ -8,7 +8,7 @@ from modules import (
     multas, 
     reportes, 
     cierre, 
-    configuracion
+    info_grupo  # Cambiado de configuracion a info_grupo
 )
 
 def mostrar_modulo():
@@ -32,8 +32,7 @@ def mostrar_modulo():
         reportes.mostrar_modulo_reportes()
     elif modulo == 'cierre':
         cierre.mostrar_modulo_cierre()
-    elif modulo == 'configuracion':
-        configuracion.mostrar_modulo_configuracion()
+    elif modulo == 'configuracion':  # Mantener compatibilidad con el botón viejo
+        info_grupo.mostrar_modulo_info_grupo()
     else:
         dashboard.mostrar_dashboard_principal()
-        
