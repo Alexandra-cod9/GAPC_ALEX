@@ -153,11 +153,11 @@ def mostrar_nueva_reunion():
         
         # 4A. Préstamos
         st.write("**📤 Préstamos Solicitados**")
-        prestamos_otorgados = procesar_prestamos(saldo_inicial)
+        prestamos_otorgados = procesar_prestamos_form(saldo_inicial)
         
         # 4B. Aportes
         st.write("**📥 Aportes Realizados**")
-        aportes_realizados = procesar_aportes()
+        aportes_realizados = procesar_aportes_form()
         
         st.markdown("---")
         
@@ -271,10 +271,10 @@ def registrar_asistencia():
     return {}
 
 # ---------------------------------------------------
-# Procesar préstamos (CORREGIDO)
+# Procesar préstamos (CORREGIDO - VERSIÓN PARA FORM)
 # ---------------------------------------------------
-def procesar_prestamos(saldo_inicial):
-    """Procesa solicitudes de préstamos durante la reunión"""
+def procesar_prestamos_form(saldo_inicial):
+    """Procesa solicitudes de préstamos durante la reunión (versión para formulario)"""
     
     # Mostrar préstamos ya agregados
     if st.session_state.prestamos_temporales:
@@ -287,11 +287,13 @@ def procesar_prestamos(saldo_inicial):
             with col2:
                 st.write(f"Plazo: {prestamo['plazo_meses']} meses")
             with col3:
-                if st.button("🗑️", key=f"del_prest_{i}"):
+                # Usar st.form_submit_button en lugar de st.button dentro del formulario
+                eliminar_prestamo = st.checkbox("Eliminar", key=f"del_prest_{i}", label_visibility="collapsed")
+                if eliminar_prestamo:
                     st.session_state.prestamos_temporales.pop(i)
                     st.rerun()
     
-    # Formulario para agregar NUEVO préstamo
+    # Sección para agregar NUEVO préstamo (sin botones dentro del formulario)
     with st.expander("➕ Agregar Nuevo Préstamo", expanded=True):
         try:
             conexion = obtener_conexion()
@@ -339,7 +341,10 @@ def procesar_prestamos(saldo_inicial):
                                              placeholder="Ej: Compra de materiales, Emergencia médica...",
                                              key="proposito_prestamo")
                     
-                    if st.button("✅ Agregar Préstamo", key="agregar_prestamo_btn"):
+                    # En lugar de botón, usar checkbox para agregar
+                    agregar_prestamo = st.checkbox("Agregar este préstamo a la lista", key="agregar_prestamo_check")
+                    
+                    if agregar_prestamo:
                         if monto_prestamo > 0 and proposito.strip():
                             miembro = opciones_miembros[miembro_seleccionado]
                             
@@ -371,10 +376,10 @@ def procesar_prestamos(saldo_inicial):
     return st.session_state.prestamos_temporales
 
 # ---------------------------------------------------
-# Procesar aportes (CORREGIDO)
+# Procesar aportes (CORREGIDO - VERSIÓN PARA FORM)
 # ---------------------------------------------------
-def procesar_aportes():
-    """Procesa los aportes durante la reunión"""
+def procesar_aportes_form():
+    """Procesa los aportes durante la reunión (versión para formulario)"""
     
     # Mostrar aportes ya agregados
     if st.session_state.aportes_temporales:
@@ -386,11 +391,13 @@ def procesar_aportes():
             with col2:
                 st.write(f"Tipo: {aporte['tipo']}")
             with col3:
-                if st.button("🗑️", key=f"del_aport_{i}"):
+                # Usar checkbox en lugar de botón dentro del formulario
+                eliminar_aporte = st.checkbox("Eliminar", key=f"del_aport_{i}", label_visibility="collapsed")
+                if eliminar_aporte:
                     st.session_state.aportes_temporales.pop(i)
                     st.rerun()
     
-    # Formulario para agregar NUEVO aporte
+    # Sección para agregar NUEVO aporte (sin botones dentro del formulario)
     with st.expander("💰 Registrar Nuevo Aporte", expanded=True):
         try:
             conexion = obtener_conexion()
@@ -427,7 +434,10 @@ def procesar_aportes():
                                                       step=10.0, 
                                                       key="monto_aporte_input")
                     
-                    if st.button("➕ Agregar Aporte", key="agregar_aporte_btn"):
+                    # En lugar de botón, usar checkbox para agregar
+                    agregar_aporte = st.checkbox("Agregar este aporte a la lista", key="agregar_aporte_check")
+                    
+                    if agregar_aporte:
                         if miembro_seleccionado and monto_aporte > 0:
                             miembro = opciones_miembros[miembro_seleccionado]
                             
