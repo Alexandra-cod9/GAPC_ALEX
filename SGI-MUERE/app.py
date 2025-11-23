@@ -165,7 +165,7 @@ def obtener_estadisticas_reales(id_grupo=None):
                 cursor.execute("""
                     SELECT COUNT(*) as total 
                     FROM reunion 
-                    WHERE id_gruppo = %s 
+                    WHERE id_grupo = %s 
                     AND MONTH(fecha) = MONTH(CURDATE()) 
                     AND YEAR(fecha) = YEAR(CURDATE())
                 """, (id_grupo,))
@@ -185,7 +185,7 @@ def obtener_estadisticas_reales(id_grupo=None):
                     SELECT COALESCE(SUM(a.monto), 0) as total 
                     FROM aporte a
                     JOIN reunion r ON a.id_reunion = r.id_reunion
-                    WHERE r.id_gruppo = %s
+                    WHERE r.id_grupo = %s
                 """, (id_grupo,))
             else:
                 cursor.execute("""
@@ -315,3 +315,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
