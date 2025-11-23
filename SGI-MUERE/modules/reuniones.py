@@ -52,6 +52,12 @@ def mostrar_nueva_reunion():
     """Interfaz para crear una nueva reunión"""
     st.subheader("➕ Nueva Reunión")
     
+    # Inicializar listas en session_state si no existen
+    if 'prestamos_temporales' not in st.session_state:
+        st.session_state.prestamos_temporales = []
+    if 'aportes_temporales' not in st.session_state:
+        st.session_state.aportes_temporales = []
+    
     # 1. Datos automáticos
     nombre_grupo, saldo_inicial = obtener_datos_automaticos()
     
@@ -82,118 +88,60 @@ def mostrar_nueva_reunion():
         st.subheader("🧍 Asistencia de Miembros")
         asistencias = registrar_asistencia()
         
-        st.markdown("---")
-        
-        # 4. Movimientos de la reunión
-        st.subheader("💸 Movimientos de la Reunión")
-        
-        # 4A. Préstamos
-        st.write("**📤 Préstamos Solicitados**")
-        prestamos_otorgados = procesar_prestamos(saldo_inicial)
-        
-        # 4B. Aportes
-        st.write("**📥 Aportes Realizados**")
-        aportes_realizados = procesar_aportes()
-        
-        st.markdown("---")
-        
-        # 5. Cálculo de saldo final
-        saldo_final = calcular_saldo_final(saldo_inicial, prestamos_otorgados, aportes_realizados)
-        
-        st.success(f"**🧮 Saldo Final Calculado:** ${saldo_final:,.2f}")
-        
         submitted = st.form_submit_button("💾 Guardar Reunión", use_container_width=True)
-        
-        if submitted:
-            if not fecha_reunion or not hora_reunion:
-                st.error("❌ Fecha y hora son obligatorios")
-            else:
-                guardar_reunion_completa(
-                    fecha_reunion, hora_reunion, acuerdos, asistencias, 
-                    prestamos_otorgados, aportes_realizados, saldo_inicial, saldo_final
-                )
-
-def obtener_datos_automaticos():
-    """Obtiene nombre del grupo y saldo inicial automáticamente"""
-    try:
-        conexion = obtener_conexion()
-        if conexion:
-            cursor = conexion.cursor()
-            
-            id_grupo = st.session_state.usuario.get('id_grupo', 1)
-            
-            # Obtener nombre del grupo
-            cursor.execute("SELECT nombre_grupo FROM grupo WHERE id_grupo = %s", (id_grupo,))
-            grupo = cursor.fetchone()
-            nombre_grupo = grupo['nombre_grupo'] if grupo else f"Grupo #{id_grupo}"
-            
-            # Obtener saldo inicial (suma de todos los aportes hasta ahora)
-            cursor.execute("""
-                SELECT COALESCE(SUM(a.monto), 0) as saldo 
-                FROM aporte a 
-                JOIN reunion r ON a.id_reunion = r.id_reunion 
-                WHERE r.id_grupo = %s
-            """, (id_grupo,))
-            
-            resultado = cursor.fetchone()
-            saldo_inicial = float(resultado['saldo']) if resultado else 0.0
-            
-            cursor.close()
-            conexion.close()
-            
-            return nombre_grupo, saldo_inicial
-            
-    except Exception as e:
-        st.error(f"Error al obtener datos automáticos: {e}")
     
-    return "Grupo", 0.0
-
-def registrar_asistencia():
-    """Registra la asistencia de miembros y aplica multas automáticamente"""
-    try:
-        conexion = obtener_conexion()
-        if conexion:
-            cursor = conexion.cursor()
-            
-            id_grupo = st.session_state.usuario.get('id_grupo', 1)
-            
-            # Obtener miembros del grupo
-            cursor.execute("""
-                SELECT m.id_miembro, m.nombre 
-                FROM miembrogapc m 
-                WHERE m.id_grupo = %s 
-                ORDER BY m.nombre
-            """, (id_grupo,))
-            
-            miembros = cursor.fetchall()
-            cursor.close()
-            conexion.close()
-            
-            asistencias = {}
-            st.write("**Marque ✅ los miembros que asistieron:**")
-            
-            for miembro in miembros:
-                col1, col2 = st.columns([3, 1])
-                with col1:
-                    st.write(f"👤 {miembro['nombre']}")
-                with col2:
-                    asistio = st.checkbox("Asistió", value=True, key=f"asist_{miembro['id_miembro']}")
-                    asistencias[miembro['id_miembro']] = asistio
-            
-            return asistencias
-            
-    except Exception as e:
-        st.error(f"Error al cargar miembros para asistencia: {e}")
+    st.markdown("---")
     
-    return {}
+    # 4. Movimientos de la reunión (FUERA del formulario)
+    st.subheader("💸 Movimientos de la Reunión")
+    
+    # 4A. Préstamos - FUERA del formulario
+    st.write("**📤 Préstamos Solicitados**")
+    prestamos_otorgados = procesar_prestamos(saldo_inicial)
+    
+    # 4B. Aportes - FUERA del formulario  
+    st.write("**📥 Aportes Realizados**")
+    aportes_realizados = procesar_aportes()
+    
+    st.markdown("---")
+    
+    # 5. Cálculo de saldo final
+    saldo_final = calcular_saldo_final(saldo_inicial, prestamos_otorgados, aportes_realizados)
+    
+    st.success(f"**🧮 Saldo Final Calculado:** ${saldo_final:,.2f}")
+    
+    # Botón de guardar reunión (ahora fuera del formulario)
+    if st.button("💾 Guardar Reunión Completa", type="primary", use_container_width=True):
+        if not fecha_reunion or not hora_reunion:
+            st.error("❌ Fecha y hora son obligatorios")
+        else:
+            guardar_reunion_completa(
+                fecha_reunion, hora_reunion, acuerdos, asistencias, 
+                prestamos_otorgados, aportes_realizados, saldo_inicial, saldo_final
+            )
+            # Limpiar listas temporales después de guardar
+            st.session_state.prestamos_temporales = []
+            st.session_state.aportes_temporales = []
 
 def procesar_prestamos(saldo_inicial):
-    """Procesa solicitudes de préstamos durante la reunión"""
-    st.write("¿Alguien solicitó préstamo?")
+    """Procesa solicitudes de préstamos durante la reunión - AHORA CON MÚLTIPLES PRÉSTAMOS"""
     
-    prestamos = []
+    # Mostrar préstamos ya agregados
+    if st.session_state.prestamos_temporales:
+        st.write("**📋 Préstamos registrados en esta reunión:**")
+        for i, prestamo in enumerate(st.session_state.prestamos_temporales):
+            col1, col2, col3 = st.columns([3, 1, 1])
+            with col1:
+                st.write(f"- {prestamo['nombre']}: ${prestamo['monto']:,.2f} ({prestamo['proposito']})")
+            with col2:
+                st.write(f"Plazo: {prestamo['plazo_meses']} meses")
+            with col3:
+                if st.button("🗑️", key=f"del_prest_{i}"):
+                    st.session_state.prestamos_temporales.pop(i)
+                    st.rerun()
     
-    with st.expander("➕ Agregar Solicitud de Préstamo"):
+    # Formulario para agregar NUEVO préstamo
+    with st.expander("➕ Agregar Nuevo Préstamo"):
         try:
             conexion = obtener_conexion()
             if conexion:
@@ -214,50 +162,71 @@ def procesar_prestamos(saldo_inicial):
                 cursor.close()
                 conexion.close()
                 
-                miembro_seleccionado = st.selectbox(
-                    "👤 Miembro solicitante:",
-                    [f"{m['id_miembro']} - {m['nombre']} (Ahorro: ${m['ahorro']:,.2f})" for m in miembros],
-                    key="prestamo_miembro"
-                )
-                
-                monto_prestamo = st.number_input("💵 Monto del préstamo:", min_value=0.0, step=100.0, key="monto_prestamo")
-                proposito = st.text_input("📋 Propósito del préstamo:", placeholder="Ej: Compra de materiales, Emergencia médica...")
-                plazo_meses = st.number_input("📅 Plazo en meses:", min_value=1, max_value=24, value=6, key="plazo_prestamo")
-                
-                if st.button("✅ Evaluar Préstamo", key="evaluar_prestamo"):
-                    if miembro_seleccionado and monto_prestamo > 0:
-                        miembro_id = int(miembro_seleccionado.split(" - ")[0])
-                        miembro_nombre = next(m['nombre'] for m in miembros if m['id_miembro'] == miembro_id)
-                        ahorro_miembro = next(m['ahorro'] for m in miembros if m['id_miembro'] == miembro_id)
-                        
-                        if monto_prestamo > ahorro_miembro:
-                            st.error(f"❌ Préstamo DENEGADO: El monto (${monto_prestamo:,.2f}) supera el ahorro disponible (${ahorro_miembro:,.2f})")
-                        elif monto_prestamo > saldo_inicial:
-                            st.error(f"❌ Préstamo DENEGADO: El monto supera el saldo disponible del grupo (${saldo_inicial:,.2f})")
+                if miembros:
+                    # Selector de miembro
+                    opciones_miembros = [f"{m['id_miembro']} - {m['nombre']} (Ahorro: ${m['ahorro']:,.2f})" for m in miembros]
+                    miembro_seleccionado = st.selectbox(
+                        "👤 Miembro solicitante:",
+                        opciones_miembros,
+                        key="prestamo_miembro"
+                    )
+                    
+                    monto_prestamo = st.number_input("💵 Monto del préstamo:", min_value=0.0, step=100.0, key="monto_prestamo")
+                    proposito = st.text_input("📋 Propósito del préstamo:", placeholder="Ej: Compra de materiales, Emergencia médica...")
+                    plazo_meses = st.number_input("📅 Plazo en meses:", min_value=1, max_value=24, value=6, key="plazo_prestamo")
+                    
+                    if st.button("✅ Agregar Préstamo a la Reunión", key="agregar_prestamo"):
+                        if miembro_seleccionado and monto_prestamo > 0:
+                            miembro_id = int(miembro_seleccionado.split(" - ")[0])
+                            miembro_nombre = next(m['nombre'] for m in miembros if m['id_miembro'] == miembro_id)
+                            ahorro_miembro = next(m['ahorro'] for m in miembros if m['id_miembro'] == miembro_id)
+                            
+                            # Validaciones
+                            if monto_prestamo > ahorro_miembro:
+                                st.error(f"❌ Préstamo DENEGADO: El monto (${monto_prestamo:,.2f}) supera el ahorro disponible (${ahorro_miembro:,.2f})")
+                            elif monto_prestamo > saldo_inicial:
+                                st.error(f"❌ Préstamo DENEGADO: El monto supera el saldo disponible del grupo (${saldo_inicial:,.2f})")
+                            else:
+                                prestamo = {
+                                    'id_miembro': miembro_id,
+                                    'nombre': miembro_nombre,
+                                    'monto': monto_prestamo,
+                                    'proposito': proposito,
+                                    'plazo_meses': plazo_meses,
+                                    'estado': 'aprobado'
+                                }
+                                st.session_state.prestamos_temporales.append(prestamo)
+                                st.success(f"✅ Préstamo agregado para {miembro_nombre} por ${monto_prestamo:,.2f}")
+                                st.rerun()
                         else:
-                            prestamo = {
-                                'id_miembro': miembro_id,
-                                'nombre': miembro_nombre,
-                                'monto': monto_prestamo,
-                                'proposito': proposito,
-                                'plazo_meses': plazo_meses,
-                                'estado': 'aprobado'
-                            }
-                            prestamos.append(prestamo)
-                            st.success(f"✅ Préstamo APROBADO para {miembro_nombre} por ${monto_prestamo:,.2f}")
+                            st.warning("⚠️ Completa todos los campos del préstamo")
+                else:
+                    st.info("📝 No hay miembros en el grupo para asignar préstamos")
                     
         except Exception as e:
             st.error(f"Error al procesar préstamos: {e}")
     
-    return prestamos
+    return st.session_state.prestamos_temporales
 
 def procesar_aportes():
-    """Procesa los aportes durante la reunión"""
-    st.write("Registrar aportes realizados:")
+    """Procesa los aportes durante la reunión - AHORA CON MÚLTIPLES APORTES"""
     
-    aportes = []
+    # Mostrar aportes ya agregados
+    if st.session_state.aportes_temporales:
+        st.write("**📋 Aportes registrados en esta reunión:**")
+        for i, aporte in enumerate(st.session_state.aportes_temporales):
+            col1, col2, col3 = st.columns([3, 1, 1])
+            with col1:
+                st.write(f"- {aporte['nombre']}: ${aporte['monto']:,.2f}")
+            with col2:
+                st.write(f"Tipo: {aporte['tipo']}")
+            with col3:
+                if st.button("🗑️", key=f"del_aport_{i}"):
+                    st.session_state.aportes_temporales.pop(i)
+                    st.rerun()
     
-    with st.expander("💰 Registrar Aporte"):
+    # Formulario para agregar NUEVO aporte
+    with st.expander("💰 Registrar Nuevo Aporte"):
         try:
             conexion = obtener_conexion()
             if conexion:
@@ -271,36 +240,44 @@ def procesar_aportes():
                 cursor.close()
                 conexion.close()
                 
-                miembro_aporte = st.selectbox(
-                    "👤 Miembro que aporta:",
-                    [f"{m['id_miembro']} - {m['nombre']}" for m in miembros],
-                    key="aporte_miembro"
-                )
-                
-                tipo_aporte = st.selectbox(
-                    "📋 Tipo de aporte:",
-                    ['Ahorro', 'Rifa', 'Pago de préstamo', 'Pago de multa', 'Otros'],
-                    key="tipo_aporte"
-                )
-                
-                monto_aporte = st.number_input("💵 Monto del aporte:", min_value=0.0, step=10.0, key="monto_aporte")
-                
-                if st.button("➕ Agregar Aporte", key="agregar_aporte"):
-                    if miembro_aporte and monto_aporte > 0:
-                        miembro_id = int(miembro_aporte.split(" - ")[0])
-                        miembro_nombre = next(m['nombre'] for m in miembros if m['id_miembro'] == miembro_id)
-                        
-                        aporte = {
-                            'id_miembro': miembro_id,
-                            'nombre': miembro_nombre,
-                            'monto': monto_aporte,
-                            'tipo': tipo_aporte
-                        }
-                        aportes.append(aporte)
-                        st.success(f"✅ Aporte de {miembro_nombre} registrado: ${monto_aporte:,.2f} - {tipo_aporte}")
+                if miembros:
+                    miembro_aporte = st.selectbox(
+                        "👤 Miembro que aporta:",
+                        [f"{m['id_miembro']} - {m['nombre']}" for m in miembros],
+                        key="aporte_miembro"
+                    )
+                    
+                    tipo_aporte = st.selectbox(
+                        "📋 Tipo de aporte:",
+                        ['Ahorro', 'Rifa', 'Pago de préstamo', 'Pago de multa', 'Otros'],
+                        key="tipo_aporte"
+                    )
+                    
+                    monto_aporte = st.number_input("💵 Monto del aporte:", min_value=0.0, step=10.0, key="monto_aporte")
+                    
+                    if st.button("➕ Agregar Aporte a la Reunión", key="agregar_aporte"):
+                        if miembro_aporte and monto_aporte > 0:
+                            miembro_id = int(miembro_aporte.split(" - ")[0])
+                            miembro_nombre = next(m['nombre'] for m in miembros if m['id_miembro'] == miembro_id)
+                            
+                            aporte = {
+                                'id_miembro': miembro_id,
+                                'nombre': miembro_nombre,
+                                'monto': monto_aporte,
+                                'tipo': tipo_aporte
+                            }
+                            st.session_state.aportes_temporales.append(aporte)
+                            st.success(f"✅ Aporte de {miembro_nombre} registrado: ${monto_aporte:,.2f} - {tipo_aporte}")
+                            st.rerun()
+                        else:
+                            st.warning("⚠️ Completa todos los campos del aporte")
+                else:
+                    st.info("📝 No hay miembros en el grupo para registrar aportes")
     
         except Exception as e:
             st.error(f"Error al procesar aportes: {e}")
+    
+    return st.session_state.aportes_temporales
     
     # Mostrar aportes registrados
     if aportes:
@@ -421,4 +398,5 @@ def mostrar_historial_reuniones():
                 
     except Exception as e:
         st.error(f"❌ Error al cargar historial: {e}")
+
 
