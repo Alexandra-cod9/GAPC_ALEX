@@ -1,5 +1,6 @@
 import streamlit as st
 import pymysql
+from datetime import datetime
 
 def obtener_conexion():
     """Función para obtener conexión a la base de datos"""
@@ -118,10 +119,12 @@ def mostrar_informacion_general(info_grupo, id_grupo):
             
             # Selector de frecuencia de reuniones
             frecuencia_opciones = ['semanal', 'quincenal', 'mensual']
+            frecuencia_actual = info_grupo.get('frecuencia_reuniones', 'semanal')
+            frecuencia_index = frecuencia_opciones.index(frecuencia_actual) if frecuencia_actual in frecuencia_opciones else 0
             frecuencia_reuniones = st.selectbox(
                 "🔄 Frecuencia de Reuniones *",
                 options=frecuencia_opciones,
-                index=frecuencia_opciones.index(info_grupo.get('frecuencia_reuniones', 'semanal'))
+                index=frecuencia_index
             )
         
         with col2:
@@ -136,10 +139,12 @@ def mostrar_informacion_general(info_grupo, id_grupo):
             
             # Selector de método de reparto
             metodo_opciones = ['proporcional', 'equitativo']
+            metodo_actual = info_grupo.get('metodo_reparto_utilidades', 'proporcional')
+            metodo_index = metodo_opciones.index(metodo_actual) if metodo_actual in metodo_opciones else 0
             metodo_reparto = st.selectbox(
                 "💰 Método de Reparto de Utilidades *",
                 options=metodo_opciones,
-                index=metodo_opciones.index(info_grupo.get('metodo_reparto_utilidades', 'proporcional'))
+                index=metodo_index
             )
             
             meta_social = st.text_area(
@@ -275,9 +280,10 @@ def mostrar_gestion_reglamento(info_grupo, id_grupo):
                 st.info(info_grupo['reglas_prestamo'])
     
     # Opciones para gestionar reglamento
+    opciones = ["➕ Añadir Reglamento", "✏️ Editar Reglamento"] if id_reglamento else ["➕ Añadir Reglamento"]
     opcion = st.radio(
         "Selecciona una acción:",
-        ["➕ Añadir Reglamento", "✏️ Editar Reglamento"] if id_reglamento else ["➕ Añadir Reglamento"],
+        opciones,
         horizontal=True
     )
     
