@@ -1,38 +1,45 @@
 import streamlit as st
-from modules import (
-    dashboard, 
-    miembros, 
-    reuniones, 
-    aportes, 
-    prestamos, 
-    multas, 
-    reportes, 
-    cierre, 
-    configuracion
-)
+import sys
+import os
+
+# Agregar el directorio raíz al path para importaciones absolutas
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Importaciones absolutas
+from modules.dashboard import mostrar_dashboard_principal
+from modules.miembros import mostrar_modulo_miembros
+from modules.reuniones import mostrar_modulo_reuniones
+from modules.aportes import mostrar_modulo_aportes
+from modules.prestamos import mostrar_modulo_prestamos
+from modules.multas import mostrar_modulo_multas
+from modules.reportes import mostrar_modulo_reportes
+from modules.cierre import mostrar_modulo_cierre
+from modules.configuracion import mostrar_modulo_configuracion
 
 def mostrar_modulo():
     """Muestra el módulo actual seleccionado"""
     modulo = st.session_state.modulo_actual
     
+    st.write(f"🔍 DEBUG: Módulo actual = {modulo}")  # Línea de debug temporal
+    
     # Contenido específico de cada módulo
     if modulo == 'dashboard':
-        dashboard.mostrar_dashboard_principal()
+        mostrar_dashboard_principal()
     elif modulo == 'miembros':
-        miembros.mostrar_modulo_miembros()
+        mostrar_modulo_miembros()
     elif modulo == 'reuniones':
-        reuniones.mostrar_modulo_reuniones()
+        mostrar_modulo_reuniones()
     elif modulo == 'aportes':
-        aportes.mostrar_modulo_aportes()
+        mostrar_modulo_aportes()
     elif modulo == 'prestamos':
-        prestamos.mostrar_modulo_prestamos()
+        mostrar_modulo_prestamos()
     elif modulo == 'multas':
-        multas.mostrar_modulo_multas()
+        mostrar_modulo_multas()
     elif modulo == 'reportes':
-        reportes.mostrar_modulo_reportes()
+        mostrar_modulo_reportes()
     elif modulo == 'cierre':
-        cierre.mostrar_modulo_cierre()
+        mostrar_modulo_cierre()
     elif modulo == 'configuracion':
-        configuracion.mostrar_modulo_configuracion()
+        mostrar_modulo_configuracion()
     else:
-        dashboard.mostrar_dashboard_principal()
+        mostrar_dashboard_principal()
