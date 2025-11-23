@@ -7,7 +7,7 @@ from .prestamos import mostrar_modulo_prestamos
 from .multas import mostrar_modulo_multas
 from .reportes import mostrar_modulo_reportes
 from .cierre import mostrar_modulo_cierre
-from .configuracion import mostrar_modulo_configuracion
+from .info_grupo import mostrar_modulo_info_grupo
 
 __all__ = [
     'mostrar_dashboard_principal',
@@ -18,5 +18,5 @@ __all__ = [
     'mostrar_modulo_multas',
     'mostrar_modulo_reportes',
     'mostrar_modulo_cierre',
-    'mostrar_modulo_configuracion'
+    'mostrar_modulo_info_grupo'
 ]
