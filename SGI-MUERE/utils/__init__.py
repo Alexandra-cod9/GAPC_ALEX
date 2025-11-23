@@ -1,1 +1,4 @@
-# Esto hace que la carpeta utils sea un paquete Python
+# Exportar funciones de utils
+from .navegacion import mostrar_modulo
+
+__all__ = ['mostrar_modulo']
