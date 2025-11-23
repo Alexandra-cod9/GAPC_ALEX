@@ -138,10 +138,10 @@ def mostrar_dashboard_principal():
             st.session_state.modulo_actual = 'cierre'
             st.rerun()
 
-    with col4:
-        if st.button("⚙️ **Configuración**\nAjustes", use_container_width=True, key="configuracion"):
-            st.session_state.modulo_actual = 'configuracion'
-            st.rerun()
+   with col4:
+    if st.button("🏢 **Info Grupo**\nConfiguración", use_container_width=True, key="configuracion"):
+        st.session_state.modulo_actual = 'configuracion'
+        st.rerun()
     
     # Información del sistema más compacta
     st.markdown("---")
