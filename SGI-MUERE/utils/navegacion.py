@@ -3,7 +3,7 @@ from modules import (
     dashboard, 
     miembros, 
     reuniones, 
-    aportes, 
+    aportes,  # ✅ Asegúrate de que esté importado
     prestamos, 
     multas, 
     reportes, 
@@ -21,9 +21,9 @@ def mostrar_modulo():
     elif modulo == 'miembros':
         miembros.mostrar_modulo_miembros()
     elif modulo == 'reuniones':
-        reuniones.mostrar_modulo_reuniones()  # ✅ ACTUALIZADO - Ahora usa la nueva función
+        reuniones.mostrar_modulo_reuniones()
     elif modulo == 'aportes':
-        aportes.mostrar_modulo_aportes()
+        aportes.mostrar_modulo_aportes()  # ✅ Llamada correcta
     elif modulo == 'prestamos':
         prestamos.mostrar_modulo_prestamos()
     elif modulo == 'multas':
