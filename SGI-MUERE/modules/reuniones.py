@@ -5,7 +5,7 @@ from dateutil.relativedelta import relativedelta
 import traceback
 
 # ---------------------------------------------------
-# Configuración de conexión (sin cambios)
+# Configuración de conexión
 # ---------------------------------------------------
 def obtener_conexion():
     """Función para obtener conexión a la base de datos"""
@@ -26,43 +26,42 @@ def obtener_conexion():
         return None
 
 # ---------------------------------------------------
-# Función de diagnóstico mejorada
+# Función de diagnóstico
 # ---------------------------------------------------
 def probar_conexion_y_tablas():
     """Función para diagnosticar problemas de conexión"""
     try:
-        with st.spinner("🔍 Ejecutando diagnóstico..."):
-            conexion = obtener_conexion()
-            if conexion:
-                cursor = conexion.cursor()
+        conexion = obtener_conexion()
+        if conexion:
+            cursor = conexion.cursor()
 
-                # Probar consulta SELECT
-                cursor.execute("SELECT COUNT(*) as total FROM reunion")
-                resultado = cursor.fetchone()
-                total = resultado['total'] if resultado and 'total' in resultado else 'desconocido'
-                st.info(f"✅ Tabla 'reunion' accesible. Registros: {total}")
+            # Probar consulta SELECT
+            cursor.execute("SELECT COUNT(*) as total FROM reunion")
+            resultado = cursor.fetchone()
+            total = resultado['total'] if resultado and 'total' in resultado else 'desconocido'
+            st.info(f"✅ Tabla 'reunion' accesible. Registros: {total}")
 
-                # Probar INSERT simple
-                cursor.execute("""
-                    INSERT INTO reunion (id_grupo, fecha, hora, saldo_inicial, saldo_final, acuerdos)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                """, (1, '2024-01-01', '10:00:00', 1000.00, 1200.00, 'Prueba diagnóstico'))
+            # Probar INSERT simple
+            cursor.execute("""
+                INSERT INTO reunion (id_grupo, fecha, hora, saldo_inicial, saldo_final, acuerdos) 
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (1, '2024-01-01', '10:00:00', 1000.00, 1200.00, 'Prueba diagnóstico'))
 
-                id_reunion = cursor.lastrowid
-                conexion.commit()
+            id_reunion = cursor.lastrowid
+            conexion.commit()
 
-                st.success(f"✅ INSERT de prueba exitoso. ID generado: {id_reunion}")
+            st.success(f"✅ INSERT de prueba exitoso. ID generado: {id_reunion}")
 
-                # Limpiar prueba
-                cursor.execute("DELETE FROM reunion WHERE acuerdos = %s", ('Prueba diagnóstico',))
-                conexion.commit()
+            # Limpiar prueba
+            cursor.execute("DELETE FROM reunion WHERE acuerdos = %s", ('Prueba diagnóstico',))
+            conexion.commit()
 
-                cursor.close()
-                conexion.close()
-                return True
-            else:
-                st.error("❌ No se pudo establecer conexión")
-                return False
+            cursor.close()
+            conexion.close()
+            return True
+        else:
+            st.error("❌ No se pudo establecer conexión")
+            return False
 
     except Exception as e:
         st.error(f"❌ Error en diagnóstico: {e}")
@@ -70,27 +69,10 @@ def probar_conexion_y_tablas():
         return False
 
 # ---------------------------------------------------
-# Inicialización de session_state
-# ---------------------------------------------------
-def inicializar_session_state():
-    """Inicializa todas las variables de session_state necesarias"""
-    if 'prestamos_temporales' not in st.session_state:
-        st.session_state.prestamos_temporales = []
-    if 'aportes_temporales' not in st.session_state:
-        st.session_state.aportes_temporales = []
-    if 'contador_prestamos' not in st.session_state:
-        st.session_state.contador_prestamos = 0
-    if 'contador_aportes' not in st.session_state:
-        st.session_state.contador_aportes = 0
-
-# ---------------------------------------------------
 # Módulo principal
 # ---------------------------------------------------
 def mostrar_modulo_reuniones():
     """Módulo de gestión de reuniones"""
-    
-    # Inicializar session_state
-    inicializar_session_state()
     
     # Header del módulo con botón de volver
     col1, col2 = st.columns([3, 1])
@@ -118,17 +100,23 @@ def mostrar_modulo_reuniones():
         mostrar_historial_reuniones()
 
 # ---------------------------------------------------
-# Interfaz para nueva reunión mejorada
+# Interfaz para nueva reunión (CORREGIDA)
 # ---------------------------------------------------
 def mostrar_nueva_reunion():
     """Interfaz para crear una nueva reunión"""
     st.subheader("➕ Nueva Reunión")
     
     # BOTÓN DE DIAGNÓSTICO TEMPORAL
-    if st.button("🔧 Ejecutar Diagnóstico de Base de Datos", key="diagnostico_btn"):
+    if st.button("🔧 Ejecutar Diagnóstico de Base de Datos"):
         probar_conexion_y_tablas()
         return
 
+    # Inicializar listas en session_state si no existen
+    if 'prestamos_temporales' not in st.session_state:
+        st.session_state.prestamos_temporales = []
+    if 'aportes_temporales' not in st.session_state:
+        st.session_state.aportes_temporales = []
+    
     # 1. Datos automáticos
     nombre_grupo, saldo_inicial = obtener_datos_automaticos()
     
@@ -140,7 +128,7 @@ def mostrar_nueva_reunion():
     
     st.markdown("---")
     
-    # 2. Datos de la reunión en un formulario
+    # 2. Datos de la reunión en un formulario principal
     with st.form("form_nueva_reunion", clear_on_submit=False):
         st.subheader("📅 Información de la Reunión")
         
@@ -160,36 +148,44 @@ def mostrar_nueva_reunion():
         st.subheader("🧍 Asistencia de Miembros")
         asistencias = registrar_asistencia()
         
-        submitted = st.form_submit_button("💾 Guardar Reunión", use_container_width=True)
+        # 4. Movimientos de la reunión (DENTRO del mismo formulario)
+        st.subheader("💸 Movimientos de la Reunión")
+        
+        # 4A. Préstamos
+        st.write("**📤 Préstamos Solicitados**")
+        prestamos_otorgados = procesar_prestamos(saldo_inicial)
+        
+        # 4B. Aportes
+        st.write("**📥 Aportes Realizados**")
+        aportes_realizados = procesar_aportes()
+        
+        st.markdown("---")
+        
+        # 5. Cálculo de saldo final
+        saldo_final = calcular_saldo_final(saldo_inicial, prestamos_otorgados, aportes_realizados)
+        
+        st.success(f"**🧮 Saldo Final Calculado:** ${saldo_final:,.2f}")
+        
+        # Botón de guardar reunión (DENTRO del formulario)
+        submitted = st.form_submit_button("💾 Guardar Reunión Completa", type="primary", use_container_width=True)
         
         if submitted:
             if not fecha_reunion or not hora_reunion:
                 st.error("❌ Fecha y hora son obligatorios")
+            elif len(asistencias) == 0:
+                st.error("❌ Debe registrar la asistencia de al menos un miembro")
             else:
-                # Procesar movimientos fuera del formulario pero dentro del submit
-                st.markdown("---")
-                st.subheader("💸 Movimientos de la Reunión")
-                
-                # Procesar préstamos y aportes
-                prestamos_otorgados = procesar_prestamos_ui(saldo_inicial)
-                aportes_realizados = procesar_aportes_ui()
-                
-                # Calcular saldo final
-                saldo_final = calcular_saldo_final(saldo_inicial, prestamos_otorgados, aportes_realizados)
-                
-                st.success(f"**🧮 Saldo Final Calculado:** ${saldo_final:,.2f}")
-                
-                # Confirmar guardado
-                if st.button("✅ Confirmar Guardado de Reunión", type="primary", key="confirmar_guardado"):
-                    guardar_reunion_completa(
-                        fecha_reunion, hora_reunion, acuerdos, asistencias, 
-                        prestamos_otorgados, aportes_realizados, saldo_inicial, saldo_final
-                    )
-                    # Limpiar estado después de guardar
-                    limpiar_estado_temporal()
+                guardar_reunion_completa(
+                    fecha_reunion, hora_reunion, acuerdos, asistencias, 
+                    prestamos_otorgados, aportes_realizados, saldo_inicial, saldo_final
+                )
+                # Limpiar listas temporales después de guardar
+                st.session_state.prestamos_temporales = []
+                st.session_state.aportes_temporales = []
+                st.success("✅ Listas temporales limpiadas. Puede crear una nueva reunión.")
 
 # ---------------------------------------------------
-# Funciones auxiliares mejoradas
+# Obtener datos automáticos
 # ---------------------------------------------------
 def obtener_datos_automaticos():
     """Obtiene nombre del grupo y saldo inicial automáticamente"""
@@ -205,7 +201,7 @@ def obtener_datos_automaticos():
             grupo = cursor.fetchone()
             nombre_grupo = grupo['nombre_grupo'] if grupo else f"Grupo #{id_grupo}"
             
-            # Obtener saldo inicial (usando el nombre correcto de la columna)
+            # Obtener saldo inicial (suma de todos los aportes hasta ahora)
             cursor.execute("""
                 SELECT COALESCE(SUM(a.monto), 0) as saldo 
                 FROM aporte a 
@@ -226,6 +222,9 @@ def obtener_datos_automaticos():
     
     return "Grupo", 0.0
 
+# ---------------------------------------------------
+# Registrar asistencia (CORREGIDA)
+# ---------------------------------------------------
 def registrar_asistencia():
     """Registra la asistencia de miembros"""
     try:
@@ -250,13 +249,17 @@ def registrar_asistencia():
             asistencias = {}
             st.write("**Marque ✅ los miembros que asistieron:**")
             
-            for miembro in miembros:
+            # Usar un contador único para las keys
+            if 'asistencia_counter' not in st.session_state:
+                st.session_state.asistencia_counter = 0
+            
+            for i, miembro in enumerate(miembros):
                 col1, col2 = st.columns([3, 1])
                 with col1:
                     st.write(f"👤 {miembro['nombre']}")
                 with col2:
-                    key = f"asist_{miembro['id_miembro']}"
-                    # Valor por defecto: True (asistió)
+                    # Checkbox por miembro con key única
+                    key = f"asist_{miembro['id_miembro']}_{st.session_state.asistencia_counter}"
                     asistio = st.checkbox("Asistió", value=True, key=key, label_visibility="collapsed")
                     asistencias[miembro['id_miembro']] = asistio
             
@@ -267,69 +270,57 @@ def registrar_asistencia():
     
     return {}
 
-def procesar_prestamos_ui(saldo_inicial):
-    """Interfaz para procesar préstamos"""
-    st.write("**📤 Préstamos Solicitados**")
+# ---------------------------------------------------
+# Procesar préstamos (CORREGIDO)
+# ---------------------------------------------------
+def procesar_prestamos(saldo_inicial):
+    """Procesa solicitudes de préstamos durante la reunión"""
     
-    # Mostrar préstamos existentes
-    mostrar_prestamos_existentes()
-    
-    # Formulario para nuevo préstamo
-    with st.expander("➕ Agregar Nuevo Préstamo", expanded=False):
-        agregar_nuevo_prestamo(saldo_inicial)
-    
-    return st.session_state.prestamos_temporales
-
-def mostrar_prestamos_existentes():
-    """Muestra los préstamos ya agregados"""
+    # Mostrar préstamos ya agregados
     if st.session_state.prestamos_temporales:
+        st.write("**📋 Préstamos registrados en esta reunión:**")
         for i, prestamo in enumerate(st.session_state.prestamos_temporales):
-            col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
+            col1, col2, col3 = st.columns([3, 1, 1])
             with col1:
-                st.write(f"**{prestamo['nombre']}**")
-                st.write(f"${prestamo['monto']:,.2f} - {prestamo['proposito']}")
+                st.write(f"- **{prestamo['nombre']}**: ${prestamo['monto']:,.2f}")
+                st.caption(f"Propósito: {prestamo['proposito']}")
             with col2:
-                st.write(f"**Plazo:** {prestamo['plazo_meses']} meses")
+                st.write(f"Plazo: {prestamo['plazo_meses']} meses")
             with col3:
-                st.write(f"**Estado:** {prestamo['estado']}")
-            with col4:
                 if st.button("🗑️", key=f"del_prest_{i}"):
                     st.session_state.prestamos_temporales.pop(i)
                     st.rerun()
-
-def agregar_nuevo_prestamo(saldo_inicial):
-    """Agrega un nuevo préstamo"""
-    try:
-        conexion = obtener_conexion()
-        if conexion:
-            cursor = conexion.cursor()
-            
-            id_grupo = st.session_state.usuario.get('id_grupo', 1)
-            
-            # Obtener miembros con su ahorro actual
-            cursor.execute("""
-                SELECT m.id_miembro, m.nombre, COALESCE(SUM(a.monto), 0) as ahorro
-                FROM miembrogapc m
-                LEFT JOIN aporte a ON m.id_miembro = a.id_miembro
-                WHERE m.id_grupo = %s
-                GROUP BY m.id_miembro, m.nombre
-            """, (id_grupo,))
-            
-            miembros = cursor.fetchall()
-            cursor.close()
-            conexion.close()
-            
-            if miembros:
-                # Selector de miembro
-                opciones_miembros = {f"{m['nombre']} (Ahorro: ${m['ahorro']:,.2f})": m for m in miembros}
-                miembro_seleccionado_nombre = st.selectbox(
-                    "👤 Miembro solicitante:",
-                    list(opciones_miembros.keys()),
-                    key="prestamo_miembro_select"
-                )
+    
+    # Formulario para agregar NUEVO préstamo
+    with st.expander("➕ Agregar Nuevo Préstamo", expanded=True):
+        try:
+            conexion = obtener_conexion()
+            if conexion:
+                cursor = conexion.cursor()
                 
-                if miembro_seleccionado_nombre:
-                    miembro = opciones_miembros[miembro_seleccionado_nombre]
+                id_grupo = st.session_state.usuario.get('id_grupo', 1)
+                
+                # Obtener miembros con su ahorro actual
+                cursor.execute("""
+                    SELECT m.id_miembro, m.nombre, COALESCE(SUM(a.monto), 0) as ahorro
+                    FROM miembrogapc m
+                    LEFT JOIN aporte a ON m.id_miembro = a.id_miembro
+                    WHERE m.id_grupo = %s
+                    GROUP BY m.id_miembro, m.nombre
+                """, (id_grupo,))
+                
+                miembros = cursor.fetchall()
+                cursor.close()
+                conexion.close()
+                
+                if miembros:
+                    # Selector de miembro mejorado
+                    opciones_miembros = {f"{m['nombre']} (Ahorro: ${m['ahorro']:,.2f})": m for m in miembros}
+                    miembro_seleccionado = st.selectbox(
+                        "👤 Miembro solicitante:",
+                        list(opciones_miembros.keys()),
+                        key="prestamo_miembro_select"
+                    )
                     
                     col1, col2 = st.columns(2)
                     with col1:
@@ -350,6 +341,8 @@ def agregar_nuevo_prestamo(saldo_inicial):
                     
                     if st.button("✅ Agregar Préstamo", key="agregar_prestamo_btn"):
                         if monto_prestamo > 0 and proposito.strip():
+                            miembro = opciones_miembros[miembro_seleccionado]
+                            
                             # Validaciones
                             if monto_prestamo > miembro['ahorro']:
                                 st.error(f"❌ Préstamo DENEGADO: El monto (${monto_prestamo:,.2f}) supera el ahorro disponible (${miembro['ahorro']:,.2f})")
@@ -369,96 +362,97 @@ def agregar_nuevo_prestamo(saldo_inicial):
                                 st.rerun()
                         else:
                             st.warning("⚠️ Completa todos los campos del préstamo")
-            else:
-                st.info("📝 No hay miembros en el grupo para asignar préstamos")
+                else:
+                    st.info("📝 No hay miembros en el grupo para asignar préstamos")
                     
-    except Exception as e:
-        st.error(f"Error al procesar préstamos: {e}")
+        except Exception as e:
+            st.error(f"Error al procesar préstamos: {e}")
+    
+    return st.session_state.prestamos_temporales
 
-def procesar_aportes_ui():
-    """Interfaz para procesar aportes"""
-    st.write("**📥 Aportes Realizados**")
+# ---------------------------------------------------
+# Procesar aportes (CORREGIDO)
+# ---------------------------------------------------
+def procesar_aportes():
+    """Procesa los aportes durante la reunión"""
     
-    # Mostrar aportes existentes
-    mostrar_aportes_existentes()
-    
-    # Formulario para nuevo aporte
-    with st.expander("💰 Registrar Nuevo Aporte", expanded=False):
-        agregar_nuevo_aporte()
-    
-    return st.session_state.aportes_temporales
-
-def mostrar_aportes_existentes():
-    """Muestra los aportes ya agregados"""
+    # Mostrar aportes ya agregados
     if st.session_state.aportes_temporales:
+        st.write("**📋 Aportes registrados en esta reunión:**")
         for i, aporte in enumerate(st.session_state.aportes_temporales):
             col1, col2, col3 = st.columns([3, 1, 1])
             with col1:
-                st.write(f"**{aporte['nombre']}**")
-                st.write(f"${aporte['monto']:,.2f}")
+                st.write(f"- **{aporte['nombre']}**: ${aporte['monto']:,.2f}")
             with col2:
-                st.write(f"**Tipo:** {aporte['tipo']}")
+                st.write(f"Tipo: {aporte['tipo']}")
             with col3:
                 if st.button("🗑️", key=f"del_aport_{i}"):
                     st.session_state.aportes_temporales.pop(i)
                     st.rerun()
-
-def agregar_nuevo_aporte():
-    """Agrega un nuevo aporte"""
-    try:
-        conexion = obtener_conexion()
-        if conexion:
-            cursor = conexion.cursor()
-            
-            id_grupo = st.session_state.usuario.get('id_grupo', 1)
-            
-            # Obtener miembros del grupo
-            cursor.execute("SELECT id_miembro, nombre FROM miembrogapc WHERE id_grupo = %s ORDER BY nombre", (id_grupo,))
-            miembros = cursor.fetchall()
-            cursor.close()
-            conexion.close()
-            
-            if miembros:
-                miembro_aporte = st.selectbox(
-                    "👤 Miembro que aporta:",
-                    [f"{m['nombre']}" for m in miembros],
-                    key="aporte_miembro_select"
-                )
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    tipo_aporte = st.selectbox(
-                        "📋 Tipo de aporte:",
-                        ['Ahorro', 'Rifa', 'Pago de préstamo', 'Pago de multa', 'Otros'],
-                        key="tipo_aporte_select"
-                    )
-                with col2:
-                    monto_aporte = st.number_input("💵 Monto del aporte:", 
-                                                  min_value=0.0, 
-                                                  step=10.0, 
-                                                  key="monto_aporte_input")
-                
-                if st.button("➕ Agregar Aporte", key="agregar_aporte_btn"):
-                    if miembro_aporte and monto_aporte > 0:
-                        miembro = next(m for m in miembros if m['nombre'] == miembro_aporte)
-                        
-                        aporte = {
-                            'id_miembro': miembro['id_miembro'],
-                            'nombre': miembro['nombre'],
-                            'monto': monto_aporte,
-                            'tipo': tipo_aporte
-                        }
-                        st.session_state.aportes_temporales.append(aporte)
-                        st.success(f"✅ Aporte de {miembro['nombre']} registrado")
-                        st.rerun()
-                    else:
-                        st.warning("⚠️ Completa todos los campos del aporte")
-            else:
-                st.info("📝 No hay miembros en el grupo para registrar aportes")
     
-    except Exception as e:
-        st.error(f"Error al procesar aportes: {e}")
+    # Formulario para agregar NUEVO aporte
+    with st.expander("💰 Registrar Nuevo Aporte", expanded=True):
+        try:
+            conexion = obtener_conexion()
+            if conexion:
+                cursor = conexion.cursor()
+                
+                id_grupo = st.session_state.usuario.get('id_grupo', 1)
+                
+                # Obtener miembros del grupo
+                cursor.execute("SELECT id_miembro, nombre FROM miembrogapc WHERE id_grupo = %s ORDER BY nombre", (id_grupo,))
+                miembros = cursor.fetchall()
+                cursor.close()
+                conexion.close()
+                
+                if miembros:
+                    # Selector simplificado
+                    opciones_miembros = {m['nombre']: m for m in miembros}
+                    miembro_seleccionado = st.selectbox(
+                        "👤 Miembro que aporta:",
+                        list(opciones_miembros.keys()),
+                        key="aporte_miembro_select"
+                    )
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        tipo_aporte = st.selectbox(
+                            "📋 Tipo de aporte:",
+                            ['Ahorro', 'Rifa', 'Pago de préstamo', 'Pago de multa', 'Otros'],
+                            key="tipo_aporte_select"
+                        )
+                    with col2:
+                        monto_aporte = st.number_input("💵 Monto del aporte:", 
+                                                      min_value=0.0, 
+                                                      step=10.0, 
+                                                      key="monto_aporte_input")
+                    
+                    if st.button("➕ Agregar Aporte", key="agregar_aporte_btn"):
+                        if miembro_seleccionado and monto_aporte > 0:
+                            miembro = opciones_miembros[miembro_seleccionado]
+                            
+                            aporte = {
+                                'id_miembro': miembro['id_miembro'],
+                                'nombre': miembro['nombre'],
+                                'monto': monto_aporte,
+                                'tipo': tipo_aporte
+                            }
+                            st.session_state.aportes_temporales.append(aporte)
+                            st.success(f"✅ Aporte de {miembro['nombre']} registrado: ${monto_aporte:,.2f}")
+                            st.rerun()
+                        else:
+                            st.warning("⚠️ Completa todos los campos del aporte")
+                else:
+                    st.info("📝 No hay miembros en el grupo para registrar aportes")
+    
+        except Exception as e:
+            st.error(f"Error al procesar aportes: {e}")
+    
+    return st.session_state.aportes_temporales
 
+# ---------------------------------------------------
+# Calcular saldo final
+# ---------------------------------------------------
 def calcular_saldo_final(saldo_inicial, prestamos, aportes):
     """Calcula el saldo final automáticamente"""
     total_prestamos = sum(p['monto'] for p in prestamos)
@@ -467,13 +461,9 @@ def calcular_saldo_final(saldo_inicial, prestamos, aportes):
     saldo_final = saldo_inicial + total_aportes - total_prestamos
     return saldo_final
 
-def limpiar_estado_temporal():
-    """Limpia las listas temporales después de guardar"""
-    st.session_state.prestamos_temporales = []
-    st.session_state.aportes_temporales = []
-    st.session_state.contador_prestamos = 0
-    st.session_state.contador_aportes = 0
-
+# ---------------------------------------------------
+# Guardar reunión completa
+# ---------------------------------------------------
 def guardar_reunion_completa(fecha, hora, acuerdos, asistencias, prestamos, aportes, saldo_inicial, saldo_final):
     """Guarda toda la información de la reunión en la base de datos"""
     try:
@@ -521,7 +511,6 @@ def guardar_reunion_completa(fecha, hora, acuerdos, asistencias, prestamos, apor
 
             # 4. Guardar aportes
             for aporte in aportes:
-                # Mapear tipos a los valores correctos de la BD
                 tipo_bd = aporte['tipo']
                 if aporte['tipo'] == 'Pago de préstamo':
                     tipo_bd = 'PagoPrestamo'
@@ -545,6 +534,9 @@ def guardar_reunion_completa(fecha, hora, acuerdos, asistencias, prestamos, apor
         st.error(f"❌ Error al guardar la reunión: {str(e)}")
         st.error(f"🔍 Detalles del error: {traceback.format_exc()}")
 
+# ---------------------------------------------------
+# Mostrar historial de reuniones
+# ---------------------------------------------------
 def mostrar_historial_reuniones():
     """Muestra el historial de reuniones anteriores"""
     st.subheader("📋 Historial de Reuniones")
