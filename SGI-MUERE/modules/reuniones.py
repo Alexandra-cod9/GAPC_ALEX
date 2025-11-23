@@ -28,7 +28,7 @@ def mostrar_modulo_reuniones():
     with col1:
         st.markdown("# 📅 Módulo de Reuniones")
     with col2:
-        if st.button("⬅️ Volver", use_container_width=True):
+        if st.button("⬅️ Volver al Dashboard", use_container_width=True):
             st.session_state.modulo_actual = 'dashboard'
             st.rerun()
     
