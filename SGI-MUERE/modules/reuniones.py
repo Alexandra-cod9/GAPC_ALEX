@@ -2,7 +2,11 @@ import streamlit as st
 import pymysql
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+import traceback
 
+# ---------------------------------------------------
+# Configuración de conexión
+# ---------------------------------------------------
 def obtener_conexion():
     """Función para obtener conexión a la base de datos"""
     try:
@@ -21,6 +25,52 @@ def obtener_conexion():
         st.error(f"❌ Error de conexión: {e}")
         return None
 
+# ---------------------------------------------------
+# Función de diagnóstico
+# ---------------------------------------------------
+def probar_conexion_y_tablas():
+    """Función para diagnosticar problemas de conexión"""
+    try:
+        conexion = obtener_conexion()
+        if conexion:
+            cursor = conexion.cursor()
+
+            # Probar consulta SELECT
+            cursor.execute("SELECT COUNT(*) as total FROM reunion")
+            resultado = cursor.fetchone()
+            total = resultado['total'] if resultado and 'total' in resultado else 'desconocido'
+            st.info(f"✅ Tabla 'reunion' accesible. Registros: {total}")
+
+            # Probar INSERT simple
+            cursor.execute("""
+                INSERT INTO reunion (id_grupo, fecha, hora, saldo_inicial, saldo_final, acuerdos) 
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, (1, '2024-01-01', '10:00:00', 1000.00, 1200.00, 'Prueba diagnóstico'))
+
+            id_reunion = cursor.lastrowid
+            conexion.commit()
+
+            st.success(f"✅ INSERT de prueba exitoso. ID generado: {id_reunion}")
+
+            # Limpiar prueba
+            cursor.execute("DELETE FROM reunion WHERE acuerdos = %s", ('Prueba diagnóstico',))
+            conexion.commit()
+
+            cursor.close()
+            conexion.close()
+            return True
+        else:
+            st.error("❌ No se pudo establecer conexión")
+            return False
+
+    except Exception as e:
+        st.error(f"❌ Error en diagnóstico: {e}")
+        st.error(f"🔍 Detalles: {traceback.format_exc()}")
+        return False
+
+# ---------------------------------------------------
+# Módulo principal
+# ---------------------------------------------------
 def mostrar_modulo_reuniones():
     """Módulo de gestión de reuniones"""
     
@@ -49,10 +99,18 @@ def mostrar_modulo_reuniones():
     elif opcion == "📋 Historial de Reuniones":
         mostrar_historial_reuniones()
 
+# ---------------------------------------------------
+# Interfaz para nueva reunión (incluye botón diagnóstico)
+# ---------------------------------------------------
 def mostrar_nueva_reunion():
     """Interfaz para crear una nueva reunión"""
     st.subheader("➕ Nueva Reunión")
     
+    # BOTÓN DE DIAGNÓSTICO TEMPORAL
+    if st.button("🔧 Ejecutar Diagnóstico de Base de Datos"):
+        probar_conexion_y_tablas()
+        return
+
     # Inicializar listas en session_state si no existen
     if 'prestamos_temporales' not in st.session_state:
         st.session_state.prestamos_temporales = []
@@ -82,7 +140,7 @@ def mostrar_nueva_reunion():
         
         acuerdos = st.text_area("📝 Acuerdos de la reunión", 
                                placeholder="Ej: Se acordó comprar materiales para...\nTareas asignadas: Juan - llevar acta...")
-        
+
         st.markdown("---")
         
         # 3. Registro de asistencia
@@ -90,6 +148,8 @@ def mostrar_nueva_reunion():
         asistencias = registrar_asistencia()
         
         submitted = st.form_submit_button("💾 Guardar Reunión", use_container_width=True)
+        # Nota: el guardado completo está fuera del formulario para incluir movimientos
+        # si deseas que el formulario guarde todo directamente, mover la lógica aquí.
     
     st.markdown("---")
     
@@ -124,6 +184,9 @@ def mostrar_nueva_reunion():
             st.session_state.prestamos_temporales = []
             st.session_state.aportes_temporales = []
 
+# ---------------------------------------------------
+# Obtener datos automáticos
+# ---------------------------------------------------
 def obtener_datos_automaticos():
     """Obtiene nombre del grupo y saldo inicial automáticamente"""
     try:
@@ -138,16 +201,16 @@ def obtener_datos_automaticos():
             grupo = cursor.fetchone()
             nombre_grupo = grupo['nombre_grupo'] if grupo else f"Grupo #{id_grupo}"
             
-            # Obtener saldo inicial (suma de todos los aportes hasta ahora) - CORREGIDO
+            # Obtener saldo inicial (suma de todos los aportes hasta ahora)
             cursor.execute("""
                 SELECT COALESCE(SUM(a.monto), 0) as saldo 
                 FROM aporte a 
                 JOIN reunion r ON a.id_reunion = r.id_reunion 
-                WHERE r.id_grupo = %s  -- CAMBIADO: id_grupo → id_gruppo
+                WHERE r.id_grupo = %s
             """, (id_grupo,))
             
             resultado = cursor.fetchone()
-            saldo_inicial = float(resultado['saldo']) if resultado else 0.0
+            saldo_inicial = float(resultado['saldo']) if resultado and 'saldo' in resultado else 0.0
             
             cursor.close()
             conexion.close()
@@ -156,11 +219,15 @@ def obtener_datos_automaticos():
             
     except Exception as e:
         st.error(f"Error al obtener datos automáticos: {e}")
+        st.error(f"🔍 Detalles: {traceback.format_exc()}")
     
     return "Grupo", 0.0
 
+# ---------------------------------------------------
+# Registrar asistencia
+# ---------------------------------------------------
 def registrar_asistencia():
-    """Registra la asistencia de miembros y aplica multas automáticamente"""
+    """Registra la asistencia de miembros y aplica multas automáticamente (solo UI, no guarda aún)"""
     try:
         conexion = obtener_conexion()
         if conexion:
@@ -188,16 +255,24 @@ def registrar_asistencia():
                 with col1:
                     st.write(f"👤 {miembro['nombre']}")
                 with col2:
-                    asistio = st.checkbox("Asistió", value=True, key=f"asist_{miembro['id_miembro']}")
+                    # Checkbox por miembro
+                    key = f"asist_{miembro['id_miembro']}"
+                    # Si la key ya existe, conservar valor; si no, predeterminar True
+                    value = st.session_state.get(key, True)
+                    asistio = st.checkbox("Asistió", value=value, key=key)
                     asistencias[miembro['id_miembro']] = asistio
             
             return asistencias
             
     except Exception as e:
         st.error(f"Error al cargar miembros para asistencia: {e}")
+        st.error(f"🔍 Detalles: {traceback.format_exc()}")
     
     return {}
 
+# ---------------------------------------------------
+# Procesar préstamos (interfaz)
+# ---------------------------------------------------
 def procesar_prestamos(saldo_inicial):
     """Procesa solicitudes de préstamos durante la reunión - AHORA CON MÚLTIPLES PRÉSTAMOS"""
     
@@ -280,9 +355,13 @@ def procesar_prestamos(saldo_inicial):
                     
         except Exception as e:
             st.error(f"Error al procesar préstamos: {e}")
+            st.error(f"🔍 Detalles: {traceback.format_exc()}")
     
     return st.session_state.prestamos_temporales
 
+# ---------------------------------------------------
+# Procesar aportes (interfaz)
+# ---------------------------------------------------
 def procesar_aportes():
     """Procesa los aportes durante la reunión - AHORA CON MÚLTIPLES APORTES"""
     
@@ -351,9 +430,13 @@ def procesar_aportes():
     
         except Exception as e:
             st.error(f"Error al procesar aportes: {e}")
+            st.error(f"🔍 Detalles: {traceback.format_exc()}")
     
     return st.session_state.aportes_temporales
 
+# ---------------------------------------------------
+# Calcular saldo final
+# ---------------------------------------------------
 def calcular_saldo_final(saldo_inicial, prestamos, aportes):
     """Calcula el saldo final automáticamente"""
     total_prestamos = sum(p['monto'] for p in prestamos)
@@ -362,74 +445,90 @@ def calcular_saldo_final(saldo_inicial, prestamos, aportes):
     saldo_final = saldo_inicial + total_aportes - total_prestamos
     return saldo_final
 
+# ---------------------------------------------------
+# Guardar reunión completa (con manejo detallado de errores)
+# ---------------------------------------------------
 def guardar_reunion_completa(fecha, hora, acuerdos, asistencias, prestamos, aportes, saldo_inicial, saldo_final):
     """Guarda toda la información de la reunión en la base de datos"""
     try:
         conexion = obtener_conexion()
-        if conexion:
-            cursor = conexion.cursor()
-            
-            id_grupo = st.session_state.usuario.get('id_grupo', 1)
-            
-            # 1. Insertar la reunión - CORREGIDO
-            cursor.execute("""
-                INSERT INTO reunion (id_grupo, fecha, hora, saldo_inicial, saldo_final, acuerdos)  -- CAMBIADO: id_grupo → id_gruppo
-                VALUES (%s, %s, %s, %s, %s, %s)
-            """, (id_grupo, fecha, hora, saldo_inicial, saldo_final, acuerdos))
-            
-            id_reunion = cursor.lastrowid
-            
-            # 2. Guardar asistencias y aplicar multas automáticamente
-            monto_multa = 5.00  # Puedes hacer esto configurable después
-            
-            for id_miembro, asistio in asistencias.items():
-                # Guardar asistencia
-                cursor.execute("""
-                    INSERT INTO asistencia (id_reunion, id_miembro, estado, multa_aplicada)
-                    VALUES (%s, %s, %s, %s)
-                """, (id_reunion, id_miembro, 'presente' if asistio else 'ausente', 0.0 if asistio else monto_multa))
-                
-                # Si no asistió, crear multa automáticamente
-                if not asistio:
-                    cursor.execute("""
-                        INSERT INTO multa (id_miembro, motivo, monto, id_estado)
-                        VALUES (%s, %s, %s, %s)
-                    """, (id_miembro, f"Falta a reunión {fecha}", monto_multa, 1))  # id_estado 1 = activo
-            
-            # 3. Guardar préstamos aprobados - CORREGIDO cálculo de fecha
-            for prestamo in prestamos:
-                fecha_vencimiento = datetime.now().date() + relativedelta(months=prestamo['plazo_meses'])
-                
-                cursor.execute("""
-                    INSERT INTO prestamo (id_miembro, id_reunion, monto_prestado, proposito, fecha_vencimiento, plazo_meses, estado)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                """, (prestamo['id_miembro'], id_reunion, prestamo['monto'], prestamo['proposito'], 
-                      fecha_vencimiento, prestamo['plazo_meses'], prestamo['estado']))
-            
-            # 4. Guardar aportes - CORREGIDO tipos de aporte
-            for aporte in aportes:
-                # Mapear tipos a los valores correctos de la BD
-                tipo_bd = aporte['tipo']
-                if aporte['tipo'] == 'Pago de préstamo':
-                    tipo_bd = 'PagoPrestamo'
-                elif aporte['tipo'] == 'Pago de multa':
-                    tipo_bd = 'PagoMulta'
-                
-                cursor.execute("""
-                    INSERT INTO aporte (id_reunion, id_miembro, monto, tipo)
-                    VALUES (%s, %s, %s, %s)
-                """, (id_reunion, aporte['id_miembro'], aporte['monto'], tipo_bd))
-            
-            conexion.commit()
-            cursor.close()
-            conexion.close()
-            
-            st.success("🎉 ¡Reunión guardada exitosamente!")
-            st.balloons()
-            
-    except Exception as e:
-        st.error(f"❌ Error al guardar la reunión: {e}")
+        if not conexion:
+            st.error("❌ No se pudo conectar a la base de datos para guardar la reunión.")
+            return
 
+        cursor = conexion.cursor()
+        id_grupo = st.session_state.usuario.get('id_grupo', 1)
+
+        st.info(f"🔍 Intentando guardar reunión para grupo: {id_grupo}")
+
+        # 1. Insertar la reunión
+        cursor.execute("""
+            INSERT INTO reunion (id_grupo, fecha, hora, saldo_inicial, saldo_final, acuerdos)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (id_grupo, fecha, hora, saldo_inicial, saldo_final, acuerdos))
+
+        id_reunion = cursor.lastrowid
+        st.info(f"🔍 Reunión insertada. ID: {id_reunion}")
+
+        # 2. Guardar asistencias y aplicar multas automáticamente
+        monto_multa = 5.00
+
+        for id_miembro, asistio in asistencias.items():
+            cursor.execute("""
+                INSERT INTO asistencia (id_reunion, id_miembro, estado, multa_aplicada)
+                VALUES (%s, %s, %s, %s)
+            """, (id_reunion, id_miembro, 'presente' if asistio else 'ausente', 0.0 if asistio else monto_multa))
+
+            if not asistio:
+                cursor.execute("""
+                    INSERT INTO multa (id_miembro, motivo, monto, id_estado)
+                    VALUES (%s, %s, %s, %s)
+                """, (id_miembro, f"Falta a reunión {fecha}", monto_multa, 1))  # id_estado 1 = activo
+
+        st.info(f"🔍 Asistencias guardadas: {len(asistencias)} miembros")
+
+        # 3. Guardar préstamos aprobados
+        for prestamo in prestamos:
+            fecha_vencimiento = datetime.now().date() + relativedelta(months=prestamo['plazo_meses'])
+
+            cursor.execute("""
+                INSERT INTO prestamo (id_miembro, id_reunion, monto_prestado, proposito, fecha_vencimiento, plazo_meses, estado)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (prestamo['id_miembro'], id_reunion, prestamo['monto'], prestamo.get('proposito', ''), 
+                  fecha_vencimiento, prestamo['plazo_meses'], prestamo.get('estado', 'aprobado')))
+
+        st.info(f"🔍 Préstamos guardados: {len(prestamos)}")
+
+        # 4. Guardar aportes
+        for aporte in aportes:
+            tipo_bd = aporte['tipo']
+            if aporte['tipo'] == 'Pago de préstamo':
+                tipo_bd = 'PagoPrestamo'
+            elif aporte['tipo'] == 'Pago de multa':
+                tipo_bd = 'PagoMulta'
+
+            cursor.execute("""
+                INSERT INTO aporte (id_reunion, id_miembro, monto, tipo)
+                VALUES (%s, %s, %s, %s)
+            """, (id_reunion, aporte['id_miembro'], aporte['monto'], tipo_bd))
+
+        st.info(f"🔍 Aportes guardados: {len(aportes)}")
+
+        # Hacer commit de TODOS los cambios
+        conexion.commit()
+        cursor.close()
+        conexion.close()
+
+        st.success("🎉 ¡Reunión guardada exitosamente!")
+        st.balloons()
+
+    except Exception as e:
+        st.error(f"❌ Error al guardar la reunión: {str(e)}")
+        st.error(f"🔍 Detalles del error: {traceback.format_exc()}")
+
+# ---------------------------------------------------
+# Mostrar historial de reuniones
+# ---------------------------------------------------
 def mostrar_historial_reuniones():
     """Muestra el historial de reuniones anteriores"""
     st.subheader("📋 Historial de Reuniones")
@@ -446,7 +545,7 @@ def mostrar_historial_reuniones():
                        COUNT(a.id_asistencia) as total_asistentes
                 FROM reunion r
                 LEFT JOIN asistencia a ON r.id_reunion = a.id_reunion AND a.estado = 'presente'
-                WHERE r.id_grupo = %s  -- CAMBIADO: id_grupo → id_gruppo
+                WHERE r.id_grupo = %s
                 GROUP BY r.id_reunion, r.fecha, r.hora, r.saldo_inicial, r.saldo_final, r.acuerdos
                 ORDER BY r.fecha DESC
             """, (id_grupo,))
@@ -472,3 +571,4 @@ def mostrar_historial_reuniones():
                 
     except Exception as e:
         st.error(f"❌ Error al cargar historial: {e}")
+        st.error(f"🔍 Detalles: {traceback.format_exc()}")
