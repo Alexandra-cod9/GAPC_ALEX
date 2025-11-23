@@ -123,6 +123,80 @@ def mostrar_nueva_reunion():
             st.session_state.prestamos_temporales = []
             st.session_state.aportes_temporales = []
 
+def obtener_datos_automaticos():
+    """Obtiene nombre del grupo y saldo inicial automáticamente"""
+    try:
+        conexion = obtener_conexion()
+        if conexion:
+            cursor = conexion.cursor()
+            
+            id_grupo = st.session_state.usuario.get('id_grupo', 1)
+            
+            # Obtener nombre del grupo
+            cursor.execute("SELECT nombre_grupo FROM grupo WHERE id_grupo = %s", (id_grupo,))
+            grupo = cursor.fetchone()
+            nombre_grupo = grupo['nombre_grupo'] if grupo else f"Grupo #{id_grupo}"
+            
+            # Obtener saldo inicial (suma de todos los aportes hasta ahora)
+            cursor.execute("""
+                SELECT COALESCE(SUM(a.monto), 0) as saldo 
+                FROM aporte a 
+                JOIN reunion r ON a.id_reunion = r.id_reunion 
+                WHERE r.id_grupo = %s
+            """, (id_grupo,))
+            
+            resultado = cursor.fetchone()
+            saldo_inicial = float(resultado['saldo']) if resultado else 0.0
+            
+            cursor.close()
+            conexion.close()
+            
+            return nombre_grupo, saldo_inicial
+            
+    except Exception as e:
+        st.error(f"Error al obtener datos automáticos: {e}")
+    
+    return "Grupo", 0.0
+
+def registrar_asistencia():
+    """Registra la asistencia de miembros y aplica multas automáticamente"""
+    try:
+        conexion = obtener_conexion()
+        if conexion:
+            cursor = conexion.cursor()
+            
+            id_grupo = st.session_state.usuario.get('id_grupo', 1)
+            
+            # Obtener miembros del grupo
+            cursor.execute("""
+                SELECT m.id_miembro, m.nombre 
+                FROM miembrogapc m 
+                WHERE m.id_grupo = %s 
+                ORDER BY m.nombre
+            """, (id_grupo,))
+            
+            miembros = cursor.fetchall()
+            cursor.close()
+            conexion.close()
+            
+            asistencias = {}
+            st.write("**Marque ✅ los miembros que asistieron:**")
+            
+            for miembro in miembros:
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.write(f"👤 {miembro['nombre']}")
+                with col2:
+                    asistio = st.checkbox("Asistió", value=True, key=f"asist_{miembro['id_miembro']}")
+                    asistencias[miembro['id_miembro']] = asistio
+            
+            return asistencias
+            
+    except Exception as e:
+        st.error(f"Error al cargar miembros para asistencia: {e}")
+    
+    return {}
+
 def procesar_prestamos(saldo_inicial):
     """Procesa solicitudes de préstamos durante la reunión - AHORA CON MÚLTIPLES PRÉSTAMOS"""
     
@@ -278,14 +352,6 @@ def procesar_aportes():
             st.error(f"Error al procesar aportes: {e}")
     
     return st.session_state.aportes_temporales
-    
-    # Mostrar aportes registrados
-    if aportes:
-        st.write("**Aportes registrados en esta reunión:**")
-        for i, aporte in enumerate(aportes):
-            st.write(f"- {aporte['nombre']}: ${aporte['monto']:,.2f} ({aporte['tipo']})")
-    
-    return aportes
 
 def calcular_saldo_final(saldo_inicial, prestamos, aportes):
     """Calcula el saldo final automáticamente"""
@@ -398,5 +464,3 @@ def mostrar_historial_reuniones():
                 
     except Exception as e:
         st.error(f"❌ Error al cargar historial: {e}")
-
-
