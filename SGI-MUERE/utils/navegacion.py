@@ -1,15 +1,5 @@
 import streamlit as st
-from modules import (
-    dashboard, 
-    miembros, 
-    reuniones, 
-    aportes, 
-    prestamos, 
-    multas, 
-    reportes, 
-    cierre, 
-    configuracion
-)
+from modules import dashboard, miembros, reuniones, aportes, prestamos, multas, reportes, cierre, configuracion
 
 def mostrar_modulo():
     """Muestra el módulo actual seleccionado"""
