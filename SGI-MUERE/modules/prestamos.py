@@ -66,7 +66,6 @@ def mostrar_configuracion_grupo():
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            # Tasa de interés mensual por cada $10
             tasa_interes = st.number_input(
                 "💰 Interés mensual por cada $10:",
                 min_value=0.0,
@@ -77,7 +76,6 @@ def mostrar_configuracion_grupo():
             )
         
         with col2:
-            # Porcentaje máximo de préstamo respecto al ahorro
             porcentaje_maximo = st.number_input(
                 "📊 % Máximo del ahorro:",
                 min_value=10,
@@ -88,7 +86,6 @@ def mostrar_configuracion_grupo():
             )
         
         with col3:
-            # Plazo máximo en meses
             plazo_maximo = st.number_input(
                 "📅 Plazo máximo (meses):",
                 min_value=1,
@@ -98,7 +95,6 @@ def mostrar_configuracion_grupo():
                 help="Máximo número de meses para pagar un préstamo"
             )
         
-        # Checkbox para permitir múltiples préstamos
         permitir_multiples = st.checkbox(
             "✅ Permitir múltiples préstamos por persona",
             value=configuracion['permitir_multiples_prestamos'],
@@ -138,7 +134,6 @@ def obtener_configuracion_grupo():
             
             id_grupo = st.session_state.usuario.get('id_grupo', 1)
             
-            # Obtener configuración del grupo
             cursor.execute("""
                 SELECT 
                     tasa_interes_mensual,
@@ -150,35 +145,21 @@ def obtener_configuracion_grupo():
             
             grupo = cursor.fetchone()
             
-            # Buscar configuración específica de préstamos (podemos usar la tabla reglamento)
-            cursor.execute("""
-                SELECT reglas_prestamo 
-                FROM reglamento 
-                WHERE id_reglamento = %s
-            """, (1,))  # Asumiendo que hay un reglamento base
-            
-            reglamento = cursor.fetchone()
-            
             cursor.close()
             conexion.close()
             
-            # Configuración por defecto
             configuracion = {
                 'tasa_interes_mensual': grupo['tasa_interes_mensual'] if grupo and grupo['tasa_interes_mensual'] else 1.50,
-                'porcentaje_maximo_prestamo': 80,  # Por defecto 80%
-                'plazo_maximo_meses': 12,  # Por defecto 12 meses
-                'permitir_multiples_prestamos': False  # Por defecto no permitir múltiples
+                'porcentaje_maximo_prestamo': 80,
+                'plazo_maximo_meses': 12,
+                'permitir_multiples_prestamos': False
             }
-            
-            # Aquí podríamos parsear reglas_prestamo si están en formato JSON
-            # Por ahora usamos valores por defecto
             
             return configuracion
             
     except Exception as e:
         st.error(f"❌ Error al obtener configuración: {e}")
     
-    # Retorno por defecto
     return {
         'tasa_interes_mensual': 1.50,
         'porcentaje_maximo_prestamo': 80,
@@ -195,15 +176,12 @@ def guardar_configuracion_grupo(tasa_interes, porcentaje_maximo, plazo_maximo, p
             
             id_grupo = st.session_state.usuario.get('id_grupo', 1)
             
-            # Actualizar tasa de interés en la tabla grupo
             cursor.execute("""
                 UPDATE grupo 
                 SET tasa_interes_mensual = %s 
                 WHERE id_grupo = %s
             """, (tasa_interes, id_grupo))
             
-            # Aquí podríamos guardar las otras configuraciones en una tabla específica
-            # Por ahora las mantenemos en session_state para esta sesión
             if 'configuracion_prestamos' not in st.session_state:
                 st.session_state.configuracion_prestamos = {}
             
@@ -238,44 +216,105 @@ def mostrar_nuevo_prestamo():
     - 🔒 **Múltiples:** {'Permitidos' if configuracion['permitir_multiples_prestamos'] else 'No permitidos'}
     """)
     
-    # Obtener lista de miembros disponibles
-    miembros_disponibles = obtener_miembros_disponibles(configuracion)
-    
-    if not miembros_disponibles:
-        st.warning("⚠️ No hay miembros disponibles para solicitar préstamos en este momento.")
-        return
-    
-    with st.form("form_nuevo_prestamo"):
-        # Selector de miembro
-        opciones = []
-        miembros_validos = []
+    # Obtener miembros del grupo
+    try:
+        conexion = obtener_conexion()
+        if not conexion:
+            st.error("❌ No se pudo conectar a la base de datos")
+            return
+            
+        cursor = conexion.cursor()
+        id_grupo = st.session_state.usuario.get('id_grupo', 1)
         
-        for miembro in miembros_disponibles:
-            if miembro.get('puede_solicitar', False):
-                opciones.append(f"{miembro['nombre']} (Ahorro: ${miembro['ahorro_actual']:,.2f})")
-                miembros_validos.append(miembro)
-            else:
-                opciones.append(f"❌ {miembro['nombre']} ({miembro.get('motivo_rechazo', 'No disponible')})")
+        # Obtener miembros con su ahorro calculado correctamente
+        cursor.execute("""
+            SELECT 
+                m.id_miembro,
+                m.nombre,
+                m.telefono,
+                COALESCE(SUM(CASE WHEN a.tipo = 'Ahorro' THEN a.monto ELSE 0 END), 0) as ahorro_actual,
+                COUNT(DISTINCT p.id_prestamo) as prestamos_activos
+            FROM miembrogapc m
+            LEFT JOIN aporte a ON m.id_miembro = a.id_miembro
+            LEFT JOIN prestamo p ON m.id_miembro = p.id_miembro 
+                AND p.estado = 'aprobado'
+                AND p.monto_prestado > COALESCE((
+                    SELECT SUM(pg.monto_capital) 
+                    FROM pago pg 
+                    WHERE pg.id_prestamo = p.id_prestamo
+                ), 0)
+            WHERE m.id_grupo = %s
+            GROUP BY m.id_miembro, m.nombre, m.telefono
+            ORDER BY m.nombre
+        """, (id_grupo,))
         
-        if not miembros_validos:
-            st.warning("⚠️ No hay miembros elegibles para préstamos.")
-            st.form_submit_button("Cerrar", disabled=True)
+        miembros = cursor.fetchall()
+        cursor.close()
+        conexion.close()
+        
+        if not miembros:
+            st.warning("⚠️ No hay miembros en este grupo.")
             return
         
-        miembro_seleccionado_nombre = st.selectbox(
+        # Preparar datos de miembros
+        miembros_data = []
+        for miembro in miembros:
+            puede_solicitar = True
+            motivo = ""
+            
+            # Verificar múltiples préstamos
+            if not configuracion['permitir_multiples_prestamos'] and miembro['prestamos_activos'] > 0:
+                puede_solicitar = False
+                motivo = "Ya tiene un préstamo activo"
+            
+            # Verificar ahorro suficiente
+            if miembro['ahorro_actual'] <= 0:
+                puede_solicitar = False
+                motivo = "No tiene ahorro suficiente"
+            
+            miembros_data.append({
+                'id_miembro': miembro['id_miembro'],
+                'nombre': miembro['nombre'],
+                'telefono': miembro['telefono'],
+                'ahorro_actual': float(miembro['ahorro_actual']),
+                'prestamos_activos': miembro['prestamos_activos'],
+                'puede_solicitar': puede_solicitar,
+                'motivo_rechazo': motivo
+            })
+        
+    except Exception as e:
+        st.error(f"❌ Error al cargar miembros: {e}")
+        return
+    
+    # Crear opciones para el selectbox
+    opciones_miembros = {}
+    for idx, miembro in enumerate(miembros_data):
+        if miembro['puede_solicitar']:
+            label = f"✅ {miembro['nombre']} (Ahorro: ${miembro['ahorro_actual']:,.2f})"
+        else:
+            label = f"❌ {miembro['nombre']} ({miembro['motivo_rechazo']})"
+        opciones_miembros[label] = idx
+    
+    if not opciones_miembros:
+        st.warning("⚠️ No hay miembros disponibles para solicitar préstamos.")
+        return
+    
+    # Formulario de préstamo
+    with st.form("form_nuevo_prestamo"):
+        # Selector de miembro
+        miembro_label = st.selectbox(
             "👤 Selecciona el miembro solicitante:",
-            opciones,
+            list(opciones_miembros.keys()),
             key="selector_miembro_prestamo"
         )
         
-        # Encontrar el miembro seleccionado
-        miembro_seleccionado = None
-        for miembro in miembros_validos:
-            if miembro['nombre'] in miembro_seleccionado_nombre:
-                miembro_seleccionado = miembro
-                break
+        miembro_idx = opciones_miembros[miembro_label]
+        miembro_seleccionado = miembros_data[miembro_idx]
         
-        if miembro_seleccionado:
+        if not miembro_seleccionado['puede_solicitar']:
+            st.warning(f"⚠️ {miembro_seleccionado['motivo_rechazo']}")
+            st.form_submit_button("Cerrar", disabled=True)
+        else:
             st.markdown("---")
             
             # Mostrar información del miembro
@@ -357,77 +396,17 @@ def mostrar_nuevo_prestamo():
             submit_button = st.form_submit_button("✅ Solicitar Préstamo", use_container_width=True)
             
             if submit_button:
-                if monto_prestamo > 0 and proposito:
+                if monto_prestamo > 0 and proposito.strip():
                     solicitar_prestamo(miembro_seleccionado, monto_prestamo, plazo_meses, proposito, fecha_solicitud, detalles)
                 else:
                     st.error("❌ Completa todos los campos obligatorios")
-        else:
-            st.form_submit_button("Cerrar", disabled=True)
-
-def obtener_miembros_disponibles(configuracion):
-    """Obtiene lista de miembros disponibles para préstamos"""
-    try:
-        conexion = obtener_conexion()
-        if conexion:
-            cursor = conexion.cursor()
-            
-            id_grupo = st.session_state.usuario.get('id_grupo', 1)
-            
-            # Obtener miembros con su ahorro y préstamos activos
-            cursor.execute("""
-                SELECT 
-                    m.id_miembro,
-                    m.nombre,
-                    m.telefono,
-                    COALESCE(SUM(a.monto), 0) as ahorro_actual,
-                    COUNT(p.id_prestamo) as prestamos_activos
-                FROM miembrogapc m
-                LEFT JOIN aporte a ON m.id_miembro = a.id_miembro
-                LEFT JOIN prestamo p ON m.id_miembro = p.id_miembro AND p.estado = 'aprobado'
-                WHERE m.id_grupo = %s
-                GROUP BY m.id_miembro, m.nombre, m.telefono
-                ORDER BY m.nombre
-            """, (id_grupo,))
-            
-            miembros = cursor.fetchall()
-            cursor.close()
-            conexion.close()
-            
-            # Validar cada miembro
-            for miembro in miembros:
-                puede_solicitar = True
-                motivo = ""
-                
-                # Verificar si ya tiene préstamos activos (si no se permiten múltiples)
-                if not configuracion['permitir_multiples_prestamos'] and miembro['prestamos_activos'] > 0:
-                    puede_solicitar = False
-                    motivo = "Ya tiene un préstamo activo"
-                
-                # Verificar si tiene ahorro suficiente
-                if miembro['ahorro_actual'] <= 0:
-                    puede_solicitar = False
-                    motivo = "No tiene ahorro suficiente"
-                
-                miembro['puede_solicitar'] = puede_solicitar
-                miembro['motivo_rechazo'] = motivo
-            
-            return miembros
-                    
-    except Exception as e:
-        st.error(f"❌ Error al cargar miembros: {e}")
-        return []
 
 def calcular_detalles_prestamo(monto, plazo_meses, tasa_interes):
     """Calcula los detalles del préstamo"""
-    # Calcular interés mensual (por cada $10)
     interes_mensual = (monto / 10) * tasa_interes
-    
-    # Calcular totales
     interes_total = interes_mensual * plazo_meses
     total_pagar = monto + interes_total
     pago_mensual = total_pagar / plazo_meses
-    
-    # Calcular fecha de vencimiento
     fecha_vencimiento = datetime.now() + relativedelta(months=plazo_meses)
     
     return {
@@ -445,19 +424,41 @@ def solicitar_prestamo(miembro, monto, plazo_meses, proposito, fecha_solicitud, 
         if conexion:
             cursor = conexion.cursor()
             
+            id_grupo = st.session_state.usuario.get('id_grupo', 1)
+            
+            # Obtener la última reunión del grupo
+            cursor.execute("""
+                SELECT id_reunion 
+                FROM reunion 
+                WHERE id_grupo = %s 
+                ORDER BY fecha DESC, hora DESC 
+                LIMIT 1
+            """, (id_grupo,))
+            
+            reunion = cursor.fetchone()
+            
+            if not reunion:
+                st.error("❌ No hay reuniones registradas. Debes crear una reunión primero.")
+                cursor.close()
+                conexion.close()
+                return
+            
+            id_reunion = reunion['id_reunion']
+            
             # Insertar préstamo
             cursor.execute("""
                 INSERT INTO prestamo (
-                    id_miembro, monto_prestado, proposito, 
+                    id_miembro, id_reunion, monto_prestado, proposito, 
                     fecha_vencimiento, plazo_meses, estado
-                ) VALUES (%s, %s, %s, %s, %s, %s)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s)
             """, (
                 miembro['id_miembro'],
+                id_reunion,
                 monto,
                 proposito,
                 datetime.now() + relativedelta(months=plazo_meses),
                 plazo_meses,
-                'aprobado'  # Podrías cambiar a 'pendiente' si necesitas aprobación
+                'aprobado'
             ))
             
             conexion.commit()
@@ -481,7 +482,6 @@ def mostrar_historial_prestamos():
             
             id_grupo = st.session_state.usuario.get('id_grupo', 1)
             
-            # Obtener todos los préstamos del grupo
             cursor.execute("""
                 SELECT 
                     p.id_prestamo,
@@ -499,7 +499,7 @@ def mostrar_historial_prestamos():
                 WHERE m.id_grupo = %s
                 GROUP BY p.id_prestamo, m.nombre, p.monto_prestado, p.proposito, 
                          p.fecha_vencimiento, p.plazo_meses, p.estado
-                ORDER BY p.estado, p.fecha_vencimiento DESC
+                ORDER BY p.fecha_vencimiento DESC
             """, (id_grupo,))
             
             prestamos = cursor.fetchall()
@@ -507,7 +507,6 @@ def mostrar_historial_prestamos():
             conexion.close()
             
             if prestamos:
-                # Filtrar por estado
                 estados = ["Todos"] + list(set(p['estado'] for p in prestamos))
                 estado_seleccionado = st.selectbox("🔍 Filtrar por estado:", estados)
                 
@@ -515,7 +514,7 @@ def mostrar_historial_prestamos():
                     prestamos = [p for p in prestamos if p['estado'] == estado_seleccionado]
                 
                 for prestamo in prestamos:
-                    color_estado = "🟢" if prestamo['estado'] == 'aprobado' else "🔴" if prestamo['estado'] == 'rechazado' else "🟡"
+                    color_estado = "🟢" if prestamo['estado'] == 'aprobado' else "🔴"
                     
                     with st.expander(f"{color_estado} Préstamo #{prestamo['id_prestamo']} - {prestamo['miembro']} - ${prestamo['monto_prestado']:,.2f} ({prestamo['estado']})", expanded=False):
                         col1, col2 = st.columns(2)
@@ -546,7 +545,6 @@ def mostrar_prestamos_activos():
             
             id_grupo = st.session_state.usuario.get('id_grupo', 1)
             
-            # Obtener préstamos activos
             cursor.execute("""
                 SELECT 
                     p.id_prestamo,
@@ -573,7 +571,6 @@ def mostrar_prestamos_activos():
             conexion.close()
             
             if prestamos_activos:
-                # Estadísticas
                 total_activos = len(prestamos_activos)
                 total_pendiente = sum(p['saldo_pendiente'] for p in prestamos_activos)
                 
@@ -589,15 +586,14 @@ def mostrar_prestamos_activos():
                 st.markdown("---")
                 
                 for prestamo in prestamos_activos:
-                    # Determinar color según días restantes
                     if prestamo['dias_restantes'] < 0:
-                        color = "🔴"  # Vencido
+                        color = "🔴"
                         estado = f"VENCIDO (-{abs(prestamo['dias_restantes'])} días)"
                     elif prestamo['dias_restantes'] <= 30:
-                        color = "🟡"  # Por vencer
+                        color = "🟡"
                         estado = f"Por vencer ({prestamo['dias_restantes']} días)"
                     else:
-                        color = "🟢"  # En tiempo
+                        color = "🟢"
                         estado = f"En tiempo ({prestamo['dias_restantes']} días)"
                     
                     with st.expander(f"{color} {prestamo['miembro']} - ${prestamo['monto_prestado']:,.2f} - {estado}", expanded=False):
