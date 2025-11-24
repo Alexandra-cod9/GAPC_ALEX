@@ -187,7 +187,7 @@ def mostrar_todos_prestamos():
         st.error(f"❌ Error al cargar préstamos: {e}")
 
 def mostrar_nuevo_prestamo_individual():
-    """Formulario para nuevo préstamo fuera de reunión"""
+    """Formulario para nuevo préstamo fuera de reunión - VERSIÓN CORREGIDA"""
     st.subheader("➕ Nuevo Préstamo")
     
     st.info("""
@@ -285,8 +285,15 @@ def mostrar_nuevo_prestamo_individual():
                 - **Fecha de vencimiento:** {fecha_vencimiento.strftime('%d/%m/%Y')}
                 """)
             
-            # Botón de envío
-            if st.form_submit_button("✅ Aprobar Préstamo", use_container_width=True):
+            # ✅ CORRECCIÓN: Usar st.form_submit_button() en lugar de st.button()
+            submitted = st.form_submit_button(
+                "✅ Aprobar Préstamo", 
+                use_container_width=True,
+                type="primary"
+            )
+            
+            # Validar cuando se envía el formulario
+            if submitted:
                 if monto_prestamo > 0 and proposito:
                     guardar_prestamo_individual(
                         miembro_seleccionado, 
