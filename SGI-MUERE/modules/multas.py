@@ -24,7 +24,7 @@ def mostrar_modulo_multas():
     if opcion == "📋 Ver Todas las Multas":
         mostrar_todas_multas()
     elif opcion == "➕ Nueva Multa":
-        mostrar_nueva_multa_individual()
+        mostrar_nueva_multa()
     elif opcion == "⏳ Multas Pendientes":
         mostrar_multas_pendientes()
     elif opcion == "✅ Multas Pagadas":
@@ -48,18 +48,21 @@ def mostrar_todas_multas():
                     mb.nombre as miembro,
                     m.motivo,
                     m.monto,
-                    e.nombre_estado as estado,
-                    m.fecha_creacion,
-                    COALESCE(SUM(CASE WHEN a.tipo = 'PagoMulta' THEN a.monto ELSE 0 END), 0) as total_pagado,
-                    (m.monto - COALESCE(SUM(CASE WHEN a.tipo = 'PagoMulta' THEN a.monto ELSE 0 END), 0)) as saldo_pendiente,
-                    DATEDIFF(CURDATE(), m.fecha_creacion) as dias_transcurridos
+                    m.fecha_multa,
+                    m.fecha_vencimiento,
+                    m.estado,
+                    m.descripcion,
+                    DATEDIFF(m.fecha_vencimiento, CURDATE()) as dias_restantes,
+                    CASE 
+                        WHEN m.estado = 'pagada' THEN 'Pagada'
+                        WHEN DATEDIFF(m.fecha_vencimiento, CURDATE()) < 0 THEN 'Vencida'
+                        WHEN DATEDIFF(m.fecha_vencimiento, CURDATE()) <= 7 THEN 'Por vencer'
+                        ELSE 'En tiempo'
+                    END as situacion
                 FROM multa m
                 JOIN miembrogapc mb ON m.id_miembro = mb.id_miembro
-                JOIN estado e ON m.id_estado = e.id_estado
-                LEFT JOIN aporte a ON m.id_miembro = a.id_miembro AND a.tipo = 'PagoMulta'
                 WHERE mb.id_grupo = %s
-                GROUP BY m.id_multa, mb.nombre, m.motivo, m.monto, e.nombre_estado, m.fecha_creacion
-                ORDER BY e.nombre_estado, m.fecha_creacion DESC
+                ORDER BY m.estado, m.fecha_vencimiento DESC
             """, (id_grupo,))
             
             multas = cursor.fetchall()
@@ -78,8 +81,8 @@ def mostrar_todas_multas():
                     miembro_filtro = st.selectbox("👤 Filtrar por miembro:", miembros)
                 
                 with col3:
-                    situacion = ["Todas", "Pendientes", "Pagadas", "En mora"]
-                    situacion_filtro = st.selectbox("📅 Filtrar por situación:", situacion)
+                    situaciones = ["Todas", "En tiempo", "Por vencer", "Vencida", "Pagada"]
+                    situacion_filtro = st.selectbox("📅 Filtrar por situación:", situaciones)
                 
                 # Aplicar filtros
                 multas_filtradas = multas
@@ -88,187 +91,193 @@ def mostrar_todas_multas():
                 if miembro_filtro != "Todos":
                     multas_filtradas = [m for m in multas_filtradas if m['miembro'] == miembro_filtro]
                 if situacion_filtro != "Todas":
-                    if situacion_filtro == "Pendientes":
-                        multas_filtradas = [m for m in multas_filtradas if m['saldo_pendiente'] > 0]
-                    elif situacion_filtro == "Pagadas":
-                        multas_filtradas = [m for m in multas_filtradas if m['saldo_pendiente'] <= 0]
-                    elif situacion_filtro == "En mora":
-                        multas_filtradas = [m for m in multas_filtradas if m['dias_transcurridos'] > 30 and m['saldo_pendiente'] > 0]
+                    if situacion_filtro == "Vencida":
+                        multas_filtradas = [m for m in multas_filtradas if m['dias_restantes'] < 0 and m['estado'] != 'pagada']
+                    elif situacion_filtro == "Por vencer":
+                        multas_filtradas = [m for m in multas_filtradas if 0 <= m['dias_restantes'] <= 7 and m['estado'] != 'pagada']
+                    elif situacion_filtro == "En tiempo":
+                        multas_filtradas = [m for m in multas_filtradas if m['dias_restantes'] > 7 and m['estado'] != 'pagada']
+                    elif situacion_filtro == "Pagada":
+                        multas_filtradas = [m for m in multas_filtradas if m['estado'] == 'pagada']
                 
                 # Estadísticas
                 total_multas = len(multas_filtradas)
-                total_pendiente = sum(m['saldo_pendiente'] for m in multas_filtradas)
-                total_recaudado = sum(m['total_pagado'] for m in multas_filtradas)
+                total_pendiente = sum(m['monto'] for m in multas_filtradas if m['estado'] != 'pagada')
+                total_pagado = sum(m['monto'] for m in multas_filtradas if m['estado'] == 'pagada')
+                multas_vencidas = len([m for m in multas_filtradas if m['dias_restantes'] < 0 and m['estado'] != 'pagada'])
                 
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
                     st.metric("📊 Total Multas", total_multas)
                 with col2:
-                    st.metric("💰 Total Recaudado", f"${total_recaudado:,.2f}")
+                    st.metric("💰 Total Pendiente", f"${total_pendiente:,.2f}")
                 with col3:
-                    st.metric("📉 Total Pendiente", f"${total_pendiente:,.2f}")
+                    st.metric("✅ Total Pagado", f"${total_pagado:,.2f}")
                 with col4:
-                    multas_mora = len([m for m in multas_filtradas if m['dias_transcurridos'] > 30 and m['saldo_pendiente'] > 0])
-                    st.metric("⚠️ En Mora", multas_mora)
+                    st.metric("⚠️ Multas Vencidas", multas_vencidas)
                 
                 st.markdown("---")
                 
                 # Mostrar multas
                 for multa in multas_filtradas:
                     # Determinar color según situación
-                    if multa['saldo_pendiente'] <= 0:
-                        color = "🟢"  # Pagada
+                    if multa['estado'] == 'pagada':
+                        color = "✅"
                         situacion_texto = "PAGADA"
-                    elif multa['dias_transcurridos'] > 30:
-                        color = "🔴"  # En mora
-                        situacion_texto = f"EN MORA ({multa['dias_transcurridos']} días)"
+                    elif multa['dias_restantes'] < 0:
+                        color = "🔴"
+                        situacion_texto = f"VENCIDA (-{abs(multa['dias_restantes'])} días)"
+                    elif multa['dias_restantes'] <= 7:
+                        color = "🟡"
+                        situacion_texto = f"Por vencer ({multa['dias_restantes']} días)"
                     else:
-                        color = "🟡"  # Pendiente
-                        situacion_texto = f"PENDIENTE ({multa['dias_transcurridos']} días)"
+                        color = "🟢"
+                        situacion_texto = f"En tiempo ({multa['dias_restantes']} días)"
                     
                     with st.expander(f"{color} #{multa['id_multa']} - {multa['miembro']} - ${multa['monto']:,.2f} - {multa['estado']}", expanded=False):
                         col1, col2, col3 = st.columns(3)
                         
                         with col1:
                             st.write(f"**👤 Miembro:** {multa['miembro']}")
-                            st.write(f"**💵 Monto Total:** ${multa['monto']:,.2f}")
-                            st.write(f"**📅 Fecha Creación:** {multa['fecha_creacion']}")
-                            st.write(f"**📋 Motivo:** {multa['motivo']}")
+                            st.write(f"**💰 Monto:** ${multa['monto']:,.2f}")
+                            st.write(f"**📅 Fecha Multa:** {multa['fecha_multa']}")
                         
                         with col2:
-                            st.write(f"**💰 Total Pagado:** ${multa['total_pagado']:,.2f}")
-                            st.write(f"**📉 Saldo Pendiente:** ${multa['saldo_pendiente']:,.2f}")
-                            st.write(f"**📅 Días Transcurridos:** {multa['dias_transcurridos']}")
-                            st.write(f"**🔒 Estado:** {multa['estado']}")
+                            st.write(f"**📋 Motivo:** {multa['motivo']}")
+                            st.write(f"**📅 Fecha Vencimiento:** {multa['fecha_vencimiento']}")
+                            st.write(f"**⏱️ Días Restantes:** {multa['dias_restantes']}")
                         
                         with col3:
+                            st.write(f"**🔒 Estado:** {multa['estado']}")
                             st.write(f"**📊 Situación:** {situacion_texto}")
+                            if multa['descripcion']:
+                                st.write(f"**📝 Descripción:** {multa['descripcion']}")
                             
-                            # Botón para registrar pago
-                            if multa['saldo_pendiente'] > 0:
-                                if st.button("💳 Registrar Pago", key=f"pago_multa_{multa['id_multa']}"):
-                                    registrar_pago_multa(multa['id_multa'])
-                            
-                            # Botón para cambiar estado
-                            if st.button("🔄 Cambiar Estado", key=f"estado_{multa['id_multa']}"):
-                                cambiar_estado_multa(multa['id_multa'])
+                            # Botón para marcar como pagada
+                            if multa['estado'] == 'pendiente':
+                                if st.button("✅ Marcar como Pagada", key=f"pagar_{multa['id_multa']}"):
+                                    marcar_multa_pagada(multa['id_multa'])
+                                    st.rerun()
             else:
                 st.info("📝 No hay multas registradas en este grupo.")
                 
     except Exception as e:
         st.error(f"❌ Error al cargar multas: {e}")
 
-def mostrar_nueva_multa_individual():
-    """Formulario para nueva multa fuera de reunión"""
+def mostrar_nueva_multa():
+    """Formulario para registrar nueva multa"""
     st.subheader("➕ Nueva Multa")
     
     st.info("""
     **💡 Información:**
-    Al registrar una multa aquí, se simula lo que pasaría en una reunión:
-    - Se crea la multa con estado 'activo'
-    - Se afecta el saldo neto del miembro automáticamente
-    - La multa queda lista para seguimiento
+    Al registrar una multa aquí, se afecta automáticamente el saldo del miembro:
+    - Se crea la multa con estado 'pendiente'
+    - El miembro deberá pagar la multa antes de la fecha de vencimiento
+    - La multa afecta el estado financiero del miembro
     """)
     
-    with st.form("form_nueva_multa_individual"):
+    with st.form("form_nueva_multa"):
         # Buscar miembro
         miembro_seleccionado = buscar_miembro_multa()
-        
-        miembro_valido = False
-        form_content_ready = False
         
         if miembro_seleccionado:
             st.markdown("---")
             
             # Mostrar información del miembro
-            col1, col2, col3 = st.columns(3)
+            col1, col2 = st.columns(2)
             with col1:
                 st.info(f"**👤 Miembro:** {miembro_seleccionado['nombre']}")
             with col2:
-                st.info(f"**💰 Ahorro Actual:** ${miembro_seleccionado['ahorro_actual']:,.2f}")
-            with col3:
-                st.info(f"**📞 Teléfono:** {miembro_seleccionado['telefono']}")
+                st.info(f"**📧 Teléfono:** {miembro_seleccionado['telefono']}")
             
-            miembro_valido = True
+            # Datos de la multa
+            st.subheader("📝 Datos de la Multa")
             
-            # Solo mostrar el formulario completo si el miembro es válido
-            if miembro_valido:
-                # Datos de la multa
-                st.subheader("📝 Datos de la Multa")
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                motivo = st.selectbox(
+                    "📋 Motivo de la multa:",
+                    ["Falta a reunión", "Llegada tarde", "Incumplimiento de pago", "Otro"]
+                )
                 
-                col1, col2 = st.columns(2)
+                if motivo == "Otro":
+                    motivo_personalizado = st.text_input("📝 Especificar motivo:")
+                    motivo_final = motivo_personalizado if motivo_personalizado else "Otro"
+                else:
+                    motivo_final = motivo
+                
+                monto_multa = st.number_input(
+                    "💰 Monto de la multa:",
+                    min_value=0.0,
+                    value=50.0,
+                    step=10.0
+                )
+            
+            with col2:
+                fecha_multa = st.date_input(
+                    "📅 Fecha de la multa:",
+                    value=datetime.now()
+                )
+                
+                fecha_vencimiento = st.date_input(
+                    "⏰ Fecha de vencimiento:",
+                    value=datetime.now() + relativedelta(days=7)
+                )
+            
+            descripcion = st.text_area(
+                "📄 Descripción detallada:",
+                placeholder="Describe los detalles de la infracción cometida...",
+                height=100
+            )
+            
+            # Resumen
+            if monto_multa > 0:
+                st.markdown("---")
+                st.subheader("🧮 Resumen de la Multa")
+                
+                col1, col2, col3 = st.columns(3)
                 
                 with col1:
-                    monto_multa = st.number_input(
-                        "💵 Monto de la multa:",
-                        min_value=0.0,
-                        max_value=1000.0,
-                        value=0.0,
-                        step=10.0,
-                        help="Monto de la multa a aplicar"
-                    )
-                    
-                    motivo = st.text_area(
-                        "📋 Motivo de la multa:",
-                        placeholder="Describe el motivo de la multa...",
-                        height=100
-                    )
+                    st.metric("👤 Miembro", miembro_seleccionado['nombre'])
                 
                 with col2:
-                    fecha_creacion = st.date_input(
-                        "📅 Fecha de la multa:",
-                        value=datetime.now()
-                    )
-                    
-                    # Selector de tipo de multa común
-                    tipo_multa = st.selectbox(
-                        "⚖️ Tipo de infracción:",
-                        [
-                            "Falta de asistencia",
-                            "Llegada tarde", 
-                            "Incumplimiento de reglas",
-                            "Pago atrasado",
-                            "Otro"
-                        ]
-                    )
+                    st.metric("💰 Monto", f"${monto_multa:,.2f}")
                 
-                # Si selecciona "Otro", mostrar campo adicional
-                if tipo_multa == "Otro":
-                    motivo_especifico = st.text_input(
-                        "📝 Especificar motivo:",
-                        placeholder="Describe específicamente la infracción..."
-                    )
-                    if motivo_especifico:
-                        motivo = f"{tipo_multa}: {motivo_especifico}"
+                with col3:
+                    dias_vencimiento = (fecha_vencimiento - fecha_multa).days
+                    st.metric("⏱️ Plazo para pagar", f"{dias_vencimiento} días")
                 
-                form_content_ready = True
-        
-        # ✅ SIEMPRE mostrar el botón de envío, pero deshabilitado si no hay miembro válido
-        if miembro_seleccionado and miembro_valido and form_content_ready:
+                st.info(f"""
+                **📊 Detalles:**
+                - **Motivo:** {motivo_final}
+                - **Monto:** ${monto_multa:,.2f}
+                - **Fecha multa:** {fecha_multa.strftime('%d/%m/%Y')}
+                - **Vencimiento:** {fecha_vencimiento.strftime('%d/%m/%Y')}
+                - **Estado:** Pendiente
+                """)
+            
+            # Botón de envío
             submitted = st.form_submit_button(
-                "✅ Aplicar Multa", 
+                "⚖️ Registrar Multa", 
                 use_container_width=True,
                 type="primary"
             )
+            
+            if submitted:
+                if monto_multa > 0 and motivo_final:
+                    guardar_multa(
+                        miembro_seleccionado, 
+                        motivo_final, 
+                        monto_multa, 
+                        fecha_multa, 
+                        fecha_vencimiento, 
+                        descripcion
+                    )
+                else:
+                    st.error("❌ Completa todos los campos obligatorios")
         else:
-            submitted = st.form_submit_button(
-                "✅ Aplicar Multa", 
-                use_container_width=True,
-                type="primary",
-                disabled=True
-            )
-        
-        # Validar cuando se envía el formulario
-        if submitted:
-            if monto_multa > 0 and motivo:
-                guardar_multa_individual(
-                    miembro_seleccionado, 
-                    monto_multa, 
-                    motivo, 
-                    fecha_creacion
-                )
-            else:
-                st.error("❌ Completa todos los campos obligatorios")
+            st.warning("👤 Selecciona un miembro para continuar")
 
 def buscar_miembro_multa():
     """Busca y selecciona un miembro para multa"""
@@ -282,15 +291,12 @@ def buscar_miembro_multa():
             # Obtener todos los miembros del grupo
             cursor.execute("""
                 SELECT 
-                    m.id_miembro,
-                    m.nombre,
-                    m.telefono,
-                    COALESCE(SUM(a.monto), 0) as ahorro_actual
-                FROM miembrogapc m
-                LEFT JOIN aporte a ON m.id_miembro = a.id_miembro AND a.tipo = 'Ahorro'
-                WHERE m.id_grupo = %s
-                GROUP BY m.id_miembro, m.nombre, m.telefono
-                ORDER BY m.nombre
+                    id_miembro,
+                    nombre,
+                    telefono
+                FROM miembrogapc 
+                WHERE id_grupo = %s
+                ORDER BY nombre
             """, (id_grupo,))
             
             miembros = cursor.fetchall()
@@ -299,12 +305,7 @@ def buscar_miembro_multa():
             
             if miembros:
                 # Crear lista de opciones
-                opciones = ["Selecciona un miembro"]
-                miembros_info = {}
-                
-                for miembro in miembros:
-                    opciones.append(f"👤 {miembro['id_miembro']} - {miembro['nombre']} (Ahorro: ${miembro['ahorro_actual']:,.2f})")
-                    miembros_info[miembro['id_miembro']] = miembro
+                opciones = ["Selecciona un miembro"] + [f"{m['id_miembro']} - {m['nombre']}" for m in miembros]
                 
                 miembro_seleccionado_opcion = st.selectbox(
                     "👤 Selecciona el miembro a multar:",
@@ -314,9 +315,9 @@ def buscar_miembro_multa():
                 
                 if miembro_seleccionado_opcion and miembro_seleccionado_opcion != "Selecciona un miembro":
                     # Extraer ID del miembro seleccionado
-                    miembro_id = int(miembro_seleccionado_opcion.split(" - ")[0].replace("👤 ", ""))
-                    return miembros_info.get(miembro_id)
-                        
+                    miembro_id = int(miembro_seleccionado_opcion.split(" - ")[0])
+                    miembro_info = next((m for m in miembros if m['id_miembro'] == miembro_id), None)
+                    return miembro_info
             else:
                 st.info("📝 No hay miembros en este grupo.")
                 return None
@@ -326,50 +327,49 @@ def buscar_miembro_multa():
     
     return None
 
-def guardar_multa_individual(miembro, monto, motivo, fecha_creacion):
-    """Guarda una multa individual fuera de reunión"""
+def guardar_multa(miembro, motivo, monto, fecha_multa, fecha_vencimiento, descripcion):
+    """Guarda una nueva multa en la base de datos"""
     try:
         conexion = obtener_conexion()
         if conexion:
             cursor = conexion.cursor()
             
-            # Obtener el ID del estado 'activo'
-            cursor.execute("SELECT id_estado FROM estado WHERE nombre_estado = 'activo' LIMIT 1")
-            estado_activo = cursor.fetchone()
-            id_estado = estado_activo['id_estado'] if estado_activo else 1
-            
             # Insertar multa
             cursor.execute("""
                 INSERT INTO multa (
-                    id_miembro, motivo, monto, id_estado, fecha_creacion
-                ) VALUES (%s, %s, %s, %s, %s)
+                    id_miembro, motivo, monto, fecha_multa, 
+                    fecha_vencimiento, descripcion, estado
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s)
             """, (
                 miembro['id_miembro'],
                 motivo,
                 monto,
-                id_estado,
-                fecha_creacion
+                fecha_multa,
+                fecha_vencimiento,
+                descripcion,
+                'pendiente'
             ))
             
             conexion.commit()
             cursor.close()
             conexion.close()
             
-            st.success("🎉 ¡Multa aplicada exitosamente!")
+            st.success("🎉 ¡Multa registrada exitosamente!")
             st.balloons()
             
             # Mostrar resumen
             st.info(f"""
             **📋 Resumen de la Multa:**
             - **Miembro:** {miembro['nombre']}
-            - **Monto:** ${monto:,.2f}
             - **Motivo:** {motivo}
-            - **Fecha:** {fecha_creacion.strftime('%d/%m/%Y')}
-            - **Estado:** Activa
+            - **Monto:** ${monto:,.2f}
+            - **Fecha Multa:** {fecha_multa.strftime('%d/%m/%Y')}
+            - **Vencimiento:** {fecha_vencimiento.strftime('%d/%m/%Y')}
+            - **Estado:** Pendiente
             """)
             
     except Exception as e:
-        st.error(f"❌ Error al guardar multa: {e}")
+        st.error(f"❌ Error al registrar multa: {e}")
 
 def mostrar_multas_pendientes():
     """Muestra solo las multas pendientes de pago"""
@@ -389,19 +389,19 @@ def mostrar_multas_pendientes():
                     mb.nombre as miembro,
                     m.motivo,
                     m.monto,
-                    e.nombre_estado as estado,
-                    m.fecha_creacion,
-                    COALESCE(SUM(CASE WHEN a.tipo = 'PagoMulta' THEN a.monto ELSE 0 END), 0) as total_pagado,
-                    (m.monto - COALESCE(SUM(CASE WHEN a.tipo = 'PagoMulta' THEN a.monto ELSE 0 END), 0)) as saldo_pendiente,
-                    DATEDIFF(CURDATE(), m.fecha_creacion) as dias_transcurridos
+                    m.fecha_multa,
+                    m.fecha_vencimiento,
+                    m.descripcion,
+                    DATEDIFF(m.fecha_vencimiento, CURDATE()) as dias_restantes,
+                    CASE 
+                        WHEN DATEDIFF(m.fecha_vencimiento, CURDATE()) < 0 THEN 'Vencida'
+                        WHEN DATEDIFF(m.fecha_vencimiento, CURDATE()) <= 7 THEN 'Por vencer'
+                        ELSE 'En tiempo'
+                    END as situacion
                 FROM multa m
                 JOIN miembrogapc mb ON m.id_miembro = mb.id_miembro
-                JOIN estado e ON m.id_estado = e.id_estado
-                LEFT JOIN aporte a ON m.id_miembro = a.id_miembro AND a.tipo = 'PagoMulta'
-                WHERE mb.id_grupo = %s AND e.nombre_estado = 'activo'
-                GROUP BY m.id_multa, mb.nombre, m.motivo, m.monto, e.nombre_estado, m.fecha_creacion
-                HAVING saldo_pendiente > 0
-                ORDER BY m.fecha_creacion ASC
+                WHERE mb.id_grupo = %s AND m.estado = 'pendiente'
+                ORDER BY m.fecha_vencimiento ASC
             """, (id_grupo,))
             
             multas_pendientes = cursor.fetchall()
@@ -411,47 +411,52 @@ def mostrar_multas_pendientes():
             if multas_pendientes:
                 # Estadísticas
                 total_pendientes = len(multas_pendientes)
-                total_pendiente = sum(m['saldo_pendiente'] for m in multas_pendientes)
-                total_recaudado = sum(m['total_pagado'] for m in multas_pendientes)
+                total_monto_pendiente = sum(m['monto'] for m in multas_pendientes)
+                multas_vencidas = len([m for m in multas_pendientes if m['dias_restantes'] < 0])
+                multas_por_vencer = len([m for m in multas_pendientes if 0 <= m['dias_restantes'] <= 7])
                 
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
                     st.metric("📊 Multas Pendientes", total_pendientes)
                 with col2:
-                    st.metric("💰 Total Recaudado", f"${total_recaudado:,.2f}")
+                    st.metric("💰 Total Pendiente", f"${total_monto_pendiente:,.2f}")
                 with col3:
-                    st.metric("📉 Total Pendiente", f"${total_pendiente:,.2f}")
+                    st.metric("⚠️ Vencidas", multas_vencidas)
                 with col4:
-                    multas_mora = len([m for m in multas_pendientes if m['dias_transcurridos'] > 30])
-                    st.metric("⚠️ En Mora", multas_mora)
+                    st.metric("🟡 Por vencer", multas_por_vencer)
                 
                 st.markdown("---")
                 
                 for multa in multas_pendientes:
-                    # Determinar color según días transcurridos
-                    if multa['dias_transcurridos'] > 30:
-                        color = "🔴"  # En mora
-                        estado = f"EN MORA ({multa['dias_transcurridos']} días)"
+                    # Determinar color según situación
+                    if multa['dias_restantes'] < 0:
+                        color = "🔴"
+                        situacion_texto = f"VENCIDA (-{abs(multa['dias_restantes'])} días)"
+                    elif multa['dias_restantes'] <= 7:
+                        color = "🟡"
+                        situacion_texto = f"Por vencer ({multa['dias_restantes']} días)"
                     else:
-                        color = "🟡"  # Pendiente
-                        estado = f"PENDIENTE ({multa['dias_transcurridos']} días)"
+                        color = "🟢"
+                        situacion_texto = f"En tiempo ({multa['dias_restantes']} días)"
                     
-                    with st.expander(f"{color} {multa['miembro']} - ${multa['monto']:,.2f} - {estado}", expanded=False):
+                    with st.expander(f"{color} {multa['miembro']} - ${multa['monto']:,.2f} - {situacion_texto}", expanded=False):
                         col1, col2, col3 = st.columns(3)
                         with col1:
-                            st.write(f"**💵 Monto Total:** ${multa['monto']:,.2f}")
-                            st.write(f"**💰 Total Pagado:** ${multa['total_pagado']:,.2f}")
-                            st.write(f"**📋 Motivo:** {multa['motivo']}")
+                            st.write(f"**👤 Miembro:** {multa['miembro']}")
+                            st.write(f"**💰 Monto:** ${multa['monto']:,.2f}")
+                            st.write(f"**📅 Fecha Multa:** {multa['fecha_multa']}")
                         with col2:
-                            st.write(f"**📉 Saldo Pendiente:** ${multa['saldo_pendiente']:,.2f}")
-                            st.write(f"**📅 Fecha Creación:** {multa['fecha_creacion']}")
-                            st.write(f"**⏱️ Días Transcurridos:** {multa['dias_transcurridos']}")
+                            st.write(f"**📋 Motivo:** {multa['motivo']}")
+                            st.write(f"**📅 Fecha Vencimiento:** {multa['fecha_vencimiento']}")
+                            st.write(f"**⏱️ Días Restantes:** {multa['dias_restantes']}")
                         with col3:
-                            st.write(f"**🔒 Estado:** {multa['estado']}")
+                            if multa['descripcion']:
+                                st.write(f"**📝 Descripción:** {multa['descripcion']}")
                             
-                            # Botón para registrar pago
-                            if st.button("💳 Registrar Pago", key=f"pago_pen_{multa['id_multa']}"):
-                                registrar_pago_multa(multa['id_multa'])
+                            # Botón para marcar como pagada
+                            if st.button("✅ Marcar como Pagada", key=f"pagar_pend_{multa['id_multa']}"):
+                                marcar_multa_pagada(multa['id_multa'])
+                                st.rerun()
             else:
                 st.success("✅ No hay multas pendientes en este momento.")
                 
@@ -459,7 +464,7 @@ def mostrar_multas_pendientes():
         st.error(f"❌ Error al cargar multas pendientes: {e}")
 
 def mostrar_multas_pagadas():
-    """Muestra las multas que han sido pagadas completamente"""
+    """Muestra las multas que han sido pagadas"""
     st.subheader("✅ Multas Pagadas")
     
     try:
@@ -476,18 +481,14 @@ def mostrar_multas_pagadas():
                     mb.nombre as miembro,
                     m.motivo,
                     m.monto,
-                    e.nombre_estado as estado,
-                    m.fecha_creacion,
-                    COALESCE(SUM(CASE WHEN a.tipo = 'PagoMulta' THEN a.monto ELSE 0 END), 0) as total_pagado,
-                    MAX(a.fecha) as fecha_ultimo_pago
+                    m.fecha_multa,
+                    m.fecha_vencimiento,
+                    m.descripcion,
+                    m.fecha_pago
                 FROM multa m
                 JOIN miembrogapc mb ON m.id_miembro = mb.id_miembro
-                JOIN estado e ON m.id_estado = e.id_estado
-                LEFT JOIN aporte a ON m.id_miembro = a.id_miembro AND a.tipo = 'PagoMulta'
-                WHERE mb.id_grupo = %s
-                GROUP BY m.id_multa, mb.nombre, m.motivo, m.monto, e.nombre_estado, m.fecha_creacion
-                HAVING total_pagado >= m.monto
-                ORDER BY fecha_ultimo_pago DESC
+                WHERE mb.id_grupo = %s AND m.estado = 'pagada'
+                ORDER BY m.fecha_pago DESC
             """, (id_grupo,))
             
             multas_pagadas = cursor.fetchall()
@@ -495,36 +496,51 @@ def mostrar_multas_pagadas():
             conexion.close()
             
             if multas_pagadas:
-                st.info(f"📊 Se encontraron {len(multas_pagadas)} multas completamente pagadas")
+                st.info(f"📊 Se encontraron {len(multas_pagadas)} multas pagadas")
+                
+                total_recaudado = sum(m['monto'] for m in multas_pagadas)
+                st.metric("💰 Total Recaudado por Multas", f"${total_recaudado:,.2f}")
+                
+                st.markdown("---")
                 
                 for multa in multas_pagadas:
                     with st.expander(f"✅ #{multa['id_multa']} - {multa['miembro']} - ${multa['monto']:,.2f}", expanded=False):
                         col1, col2 = st.columns(2)
                         with col1:
                             st.write(f"**👤 Miembro:** {multa['miembro']}")
-                            st.write(f"**💵 Monto Total:** ${multa['monto']:,.2f}")
-                            st.write(f"**💰 Total Pagado:** ${multa['total_pagado']:,.2f}")
-                            st.write(f"**📅 Fecha Creación:** {multa['fecha_creacion']}")
+                            st.write(f"**💰 Monto:** ${multa['monto']:,.2f}")
+                            st.write(f"**📅 Fecha Multa:** {multa['fecha_multa']}")
                         with col2:
                             st.write(f"**📋 Motivo:** {multa['motivo']}")
-                            st.write(f"**🔒 Estado:** {multa['estado']}")
-                            if multa['fecha_ultimo_pago']:
-                                st.write(f"**📅 Último Pago:** {multa['fecha_ultimo_pago']}")
-                            else:
-                                st.write(f"**📅 Último Pago:** No disponible")
+                            st.write(f"**📅 Fecha Vencimiento:** {multa['fecha_vencimiento']}")
+                            st.write(f"**📅 Fecha Pago:** {multa['fecha_pago']}")
+                        if multa['descripcion']:
+                            st.write(f"**📝 Descripción:** {multa['descripcion']}")
             else:
-                st.info("📝 No hay multas completamente pagadas.")
+                st.info("📝 No hay multas pagadas.")
                 
     except Exception as e:
         st.error(f"❌ Error al cargar multas pagadas: {e}")
 
-def registrar_pago_multa(id_multa):
-    """Registra un pago para una multa"""
-    st.info(f"🔧 Función de registro de pago para multa #{id_multa} en desarrollo...")
-    # Aquí puedes implementar la lógica para registrar pagos de multas
-    st.session_state.registrar_pago_multa = id_multa
-
-def cambiar_estado_multa(id_multa):
-    """Cambia el estado de una multa"""
-    st.info(f"🔧 Función de cambio de estado para multa #{id_multa} en desarrollo...")
-    # Aquí puedes implementar la lógica para cambiar estados de multas
+def marcar_multa_pagada(id_multa):
+    """Marca una multa como pagada y actualiza el estado"""
+    try:
+        conexion = obtener_conexion()
+        if conexion:
+            cursor = conexion.cursor()
+            
+            # Actualizar multa a estado 'pagada' y establecer fecha de pago
+            cursor.execute("""
+                UPDATE multa 
+                SET estado = 'pagada', fecha_pago = CURDATE()
+                WHERE id_multa = %s
+            """, (id_multa,))
+            
+            conexion.commit()
+            cursor.close()
+            conexion.close()
+            
+            st.success("✅ Multa marcada como pagada exitosamente")
+            
+    except Exception as e:
+        st.error(f"❌ Error al actualizar multa: {e}")
