@@ -392,20 +392,21 @@ def buscar_miembro_prestamo():
     return None
 
 def guardar_prestamo_individual(miembro, monto, plazo_meses, proposito, fecha_solicitud, fecha_vencimiento):
-    """Guarda un préstamo individual fuera de reunión"""
+    """Guarda un préstamo individual fuera de reunión - VERSIÓN CORREGIDA"""
     try:
         conexion = obtener_conexion()
         if conexion:
             cursor = conexion.cursor()
             
-            # Insertar préstamo
+            # Insertar préstamo con la nueva columna fecha_solicitud
             cursor.execute("""
                 INSERT INTO prestamo (
-                    id_miembro, monto_prestado, proposito, fecha_solicitud,
-                    fecha_vencimiento, plazo_meses, estado
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    id_miembro, id_reunion, monto_prestado, proposito,
+                    fecha_solicitud, fecha_vencimiento, plazo_meses, estado
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 miembro['id_miembro'],
+                1,  # Usar un id_reunion por defecto o obtener el último
                 monto,
                 proposito,
                 fecha_solicitud,
@@ -427,6 +428,7 @@ def guardar_prestamo_individual(miembro, monto, plazo_meses, proposito, fecha_so
             - **Miembro:** {miembro['nombre']}
             - **Monto:** ${monto:,.2f}
             - **Plazo:** {plazo_meses} meses
+            - **Fecha Solicitud:** {fecha_solicitud.strftime('%d/%m/%Y')}
             - **Vencimiento:** {fecha_vencimiento.strftime('%d/%m/%Y')}
             - **Estado:** Aprobado
             """)
