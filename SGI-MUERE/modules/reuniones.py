@@ -171,6 +171,8 @@ def mostrar_nueva_reunion():
     if st.button("💾 Guardar Reunión Completa", type="primary", use_container_width=True):
         if not fecha_reunion or not hora_reunion:
             st.error("❌ Fecha y hora son obligatorios")
+        elif not asistencias:
+            st.error("❌ Debe registrar la asistencia de los miembros")
         else:
             guardar_reunion_completa(
                 fecha_reunion, hora_reunion, asistencias,
@@ -211,7 +213,7 @@ def obtener_saldo_inicial_reunion():
             cursor.close()
             conexion.close()
             
-            if ultima_reunion and ultima_reunion['saldo_final']:
+            if ultima_reunion and ultima_reunion['saldo_final'] is not None:
                 return float(ultima_reunion['saldo_final'])
     
     except Exception as e:
@@ -622,12 +624,17 @@ def guardar_reunion_completa(fecha, hora, asistencias, aportes, prestamos, multa
             
             id_reunion = cursor.lastrowid
             
-            # 2. Guardar asistencias
+            # 2. Guardar asistencias (CORREGIDO: Solo los que realmente asistieron)
             for id_miembro, asistio in asistencias.items():
+                # Calcular multa aplicada basada en si asistió o no
+                multa_aplicada = 0.0
+                if not asistio:
+                    multa_aplicada = obtener_monto_multa_ausencia()
+                
                 cursor.execute("""
                     INSERT INTO asistencia (id_reunion, id_miembro, estado, multa_aplicada)
                     VALUES (%s, %s, %s, %s)
-                """, (id_reunion, id_miembro, 'presente' if asistio else 'ausente', 0.0))
+                """, (id_reunion, id_miembro, 'presente' if asistio else 'ausente', multa_aplicada))
             
             # 3. Guardar aportes
             for aporte in aportes:
@@ -666,6 +673,9 @@ def guardar_reunion_completa(fecha, hora, asistencias, aportes, prestamos, multa
             st.success("🎉 ¡Reunión guardada exitosamente!")
             st.balloons()
             
+            # Forzar actualización del saldo inicial para la próxima reunión
+            st.session_state.ultimo_saldo_actualizado = saldo_final
+            
     except Exception as e:
         st.error(f"❌ Error al guardar la reunión: {e}")
 
@@ -680,11 +690,13 @@ def mostrar_historial_reuniones():
             
             id_grupo = st.session_state.usuario.get('id_grupo', 1)
             
+            # Consulta CORREGIDA: Contar solo los presentes reales
             cursor.execute("""
                 SELECT r.id_reunion, r.fecha, r.hora, r.saldo_inicial, r.saldo_final, r.acuerdos,
-                       COUNT(a.id_asistencia) as total_asistentes
+                       COUNT(CASE WHEN a.estado = 'presente' THEN 1 END) as total_presentes,
+                       COUNT(a.id_asistencia) as total_miembros
                 FROM reunion r
-                LEFT JOIN asistencia a ON r.id_reunion = a.id_reunion AND a.estado = 'presente'
+                LEFT JOIN asistencia a ON r.id_reunion = a.id_reunion
                 WHERE r.id_gruppo = %s
                 GROUP BY r.id_reunion, r.fecha, r.hora, r.saldo_inicial, r.saldo_final, r.acuerdos
                 ORDER BY r.fecha DESC
@@ -701,7 +713,8 @@ def mostrar_historial_reuniones():
                         with col1:
                             st.write(f"**💰 Saldo Inicial:** ${reunion['saldo_inicial']:,.2f}")
                             st.write(f"**🧮 Saldo Final:** ${reunion['saldo_final']:,.2f}")
-                            st.write(f"**👥 Asistentes:** {reunion['total_asistentes']}")
+                            st.write(f"**✅ Presentes:** {reunion['total_presentes']} de {reunion['total_miembros']}")
+                            st.write(f"**❌ Ausentes:** {reunion['total_miembros'] - reunion['total_presentes']}")
                         with col2:
                             if reunion['acuerdos']:
                                 st.write("**📝 Acuerdos:**")
@@ -711,4 +724,3 @@ def mostrar_historial_reuniones():
                 
     except Exception as e:
         st.error(f"❌ Error al cargar historial: {e}")
-        
