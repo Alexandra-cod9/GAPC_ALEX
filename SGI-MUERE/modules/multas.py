@@ -50,13 +50,13 @@ def mostrar_todas_multas():
                     m.monto,
                     e.nombre_estado as estado,
                     m.fecha_creacion,
-                    COALESCE(SUM(a.monto), 0) as total_pagado,
-                    (m.monto - COALESCE(SUM(a.monto), 0)) as saldo_pendiente,
+                    COALESCE(SUM(CASE WHEN a.tipo = 'PagoMulta' THEN a.monto ELSE 0 END), 0) as total_pagado,
+                    (m.monto - COALESCE(SUM(CASE WHEN a.tipo = 'PagoMulta' THEN a.monto ELSE 0 END), 0)) as saldo_pendiente,
                     DATEDIFF(CURDATE(), m.fecha_creacion) as dias_transcurridos
                 FROM multa m
                 JOIN miembrogapc mb ON m.id_miembro = mb.id_miembro
                 JOIN estado e ON m.id_estado = e.id_estado
-                LEFT JOIN aporte a ON m.id_multa = a.id_multa AND a.tipo = 'PagoMulta'
+                LEFT JOIN aporte a ON m.id_miembro = a.id_miembro AND a.tipo = 'PagoMulta'
                 WHERE mb.id_grupo = %s
                 GROUP BY m.id_multa, mb.nombre, m.motivo, m.monto, e.nombre_estado, m.fecha_creacion
                 ORDER BY e.nombre_estado, m.fecha_creacion DESC
@@ -391,13 +391,13 @@ def mostrar_multas_pendientes():
                     m.monto,
                     e.nombre_estado as estado,
                     m.fecha_creacion,
-                    COALESCE(SUM(a.monto), 0) as total_pagado,
-                    (m.monto - COALESCE(SUM(a.monto), 0)) as saldo_pendiente,
+                    COALESCE(SUM(CASE WHEN a.tipo = 'PagoMulta' THEN a.monto ELSE 0 END), 0) as total_pagado,
+                    (m.monto - COALESCE(SUM(CASE WHEN a.tipo = 'PagoMulta' THEN a.monto ELSE 0 END), 0)) as saldo_pendiente,
                     DATEDIFF(CURDATE(), m.fecha_creacion) as dias_transcurridos
                 FROM multa m
                 JOIN miembrogapc mb ON m.id_miembro = mb.id_miembro
                 JOIN estado e ON m.id_estado = e.id_estado
-                LEFT JOIN aporte a ON m.id_multa = a.id_multa AND a.tipo = 'PagoMulta'
+                LEFT JOIN aporte a ON m.id_miembro = a.id_miembro AND a.tipo = 'PagoMulta'
                 WHERE mb.id_grupo = %s AND e.nombre_estado = 'activo'
                 GROUP BY m.id_multa, mb.nombre, m.motivo, m.monto, e.nombre_estado, m.fecha_creacion
                 HAVING saldo_pendiente > 0
@@ -478,12 +478,12 @@ def mostrar_multas_pagadas():
                     m.monto,
                     e.nombre_estado as estado,
                     m.fecha_creacion,
-                    COALESCE(SUM(a.monto), 0) as total_pagado,
+                    COALESCE(SUM(CASE WHEN a.tipo = 'PagoMulta' THEN a.monto ELSE 0 END), 0) as total_pagado,
                     MAX(a.fecha) as fecha_ultimo_pago
                 FROM multa m
                 JOIN miembrogapc mb ON m.id_miembro = mb.id_miembro
                 JOIN estado e ON m.id_estado = e.id_estado
-                LEFT JOIN aporte a ON m.id_multa = a.id_multa AND a.tipo = 'PagoMulta'
+                LEFT JOIN aporte a ON m.id_miembro = a.id_miembro AND a.tipo = 'PagoMulta'
                 WHERE mb.id_grupo = %s
                 GROUP BY m.id_multa, mb.nombre, m.motivo, m.monto, e.nombre_estado, m.fecha_creacion
                 HAVING total_pagado >= m.monto
@@ -508,7 +508,10 @@ def mostrar_multas_pagadas():
                         with col2:
                             st.write(f"**📋 Motivo:** {multa['motivo']}")
                             st.write(f"**🔒 Estado:** {multa['estado']}")
-                            st.write(f"**📅 Último Pago:** {multa['fecha_ultimo_pago']}")
+                            if multa['fecha_ultimo_pago']:
+                                st.write(f"**📅 Último Pago:** {multa['fecha_ultimo_pago']}")
+                            else:
+                                st.write(f"**📅 Último Pago:** No disponible")
             else:
                 st.info("📝 No hay multas completamente pagadas.")
                 
@@ -517,9 +520,11 @@ def mostrar_multas_pagadas():
 
 def registrar_pago_multa(id_multa):
     """Registra un pago para una multa"""
-    st.info("🔧 Función de registro de pago de multa en desarrollo...")
+    st.info(f"🔧 Función de registro de pago para multa #{id_multa} en desarrollo...")
+    # Aquí puedes implementar la lógica para registrar pagos de multas
     st.session_state.registrar_pago_multa = id_multa
 
 def cambiar_estado_multa(id_multa):
     """Cambia el estado de una multa"""
-    st.info("🔧 Función de cambio de estado de multa en desarrollo...")
+    st.info(f"🔧 Función de cambio de estado para multa #{id_multa} en desarrollo...")
+    # Aquí puedes implementar la lógica para cambiar estados de multas
