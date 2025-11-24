@@ -204,7 +204,7 @@ def obtener_saldo_inicial_reunion():
             cursor.execute("""
                 SELECT saldo_final 
                 FROM reunion 
-                WHERE id_gruppo = %s 
+                WHERE id_grupo = %s 
                 ORDER BY fecha DESC, hora DESC 
                 LIMIT 1
             """, (id_grupo,))
@@ -618,7 +618,7 @@ def guardar_reunion_completa(fecha, hora, asistencias, aportes, prestamos, multa
             
             # 1. Insertar la reunión
             cursor.execute("""
-                INSERT INTO reunion (id_gruppo, fecha, hora, saldo_inicial, saldo_final, acuerdos)
+                INSERT INTO reunion (id_grupo, fecha, hora, saldo_inicial, saldo_final, acuerdos)
                 VALUES (%s, %s, %s, %s, %s, %s)
             """, (id_grupo, fecha, hora, saldo_inicial, saldo_final, acuerdos))
             
@@ -697,7 +697,7 @@ def mostrar_historial_reuniones():
                        COUNT(a.id_asistencia) as total_miembros
                 FROM reunion r
                 LEFT JOIN asistencia a ON r.id_reunion = a.id_reunion
-                WHERE r.id_gruppo = %s
+                WHERE r.id_grupo = %s
                 GROUP BY r.id_reunion, r.fecha, r.hora, r.saldo_inicial, r.saldo_final, r.acuerdos
                 ORDER BY r.fecha DESC
             """, (id_grupo,))
@@ -724,3 +724,4 @@ def mostrar_historial_reuniones():
                 
     except Exception as e:
         st.error(f"❌ Error al cargar historial: {e}")
+
