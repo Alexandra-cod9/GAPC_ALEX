@@ -202,6 +202,9 @@ def mostrar_nuevo_prestamo_individual():
         # Buscar miembro
         miembro_seleccionado = buscar_miembro_prestamo()
         
+        miembro_valido = False
+        form_content_ready = False
+        
         if miembro_seleccionado:
             st.markdown("---")
             
@@ -215,99 +218,121 @@ def mostrar_nuevo_prestamo_individual():
                 maximo_permitido = miembro_seleccionado['ahorro_actual'] * 0.8  # 80% del ahorro
                 st.info(f"**📈 Máximo Recomendado:** ${maximo_permitido:,.2f}")
             
-            # Datos del préstamo
-            st.subheader("📝 Datos del Préstamo")
+            # Verificar si el miembro puede solicitar préstamo
+            if miembro_seleccionado.get('prestamos_activos', 0) > 0:
+                st.error("❌ Este miembro ya tiene un préstamo activo y no puede solicitar otro.")
+                miembro_valido = False
+            elif miembro_seleccionado['ahorro_actual'] <= 0:
+                st.error("❌ Este miembro no tiene ahorro suficiente para solicitar un préstamo.")
+                miembro_valido = False
+            else:
+                miembro_valido = True
             
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                monto_prestamo = st.number_input(
-                    "💵 Monto a solicitar:",
-                    min_value=0.0,
-                    max_value=float(maximo_permitido),
-                    value=0.0,
-                    step=100.0,
-                    help=f"Máximo recomendado: ${maximo_permitido:,.2f}"
-                )
+            # Solo mostrar el formulario completo si el miembro es válido
+            if miembro_valido:
+                # Datos del préstamo
+                st.subheader("📝 Datos del Préstamo")
                 
-                plazo_meses = st.number_input(
-                    "📅 Plazo en meses:",
-                    min_value=1,
-                    max_value=24,
-                    value=6,
-                    step=1,
-                    help="Número de meses para pagar"
-                )
-            
-            with col2:
-                proposito = st.text_area(
-                    "📋 Motivo del préstamo:",
-                    placeholder="Describe para qué necesitas el préstamo...",
-                    height=100
-                )
-                
-                fecha_solicitud = st.date_input(
-                    "📅 Fecha de solicitud:",
-                    value=datetime.now()
-                )
-            
-            # Calcular detalles
-            if monto_prestamo > 0:
-                st.markdown("---")
-                st.subheader("🧮 Detalles del Préstamo")
-                
-                # Calcular interés simple (ejemplo: 5% anual)
-                tasa_interes_anual = 0.05
-                interes_total = monto_prestamo * tasa_interes_anual * (plazo_meses / 12)
-                total_pagar = monto_prestamo + interes_total
-                pago_mensual = total_pagar / plazo_meses
-                fecha_vencimiento = fecha_solicitud + relativedelta(months=plazo_meses)
-                
-                col1, col2, col3, col4 = st.columns(4)
+                col1, col2 = st.columns(2)
                 
                 with col1:
-                    st.metric("💵 Monto Principal", f"${monto_prestamo:,.2f}")
+                    monto_prestamo = st.number_input(
+                        "💵 Monto a solicitar:",
+                        min_value=0.0,
+                        max_value=float(maximo_permitido),
+                        value=0.0,
+                        step=100.0,
+                        help=f"Máximo recomendado: ${maximo_permitido:,.2f}"
+                    )
+                    
+                    plazo_meses = st.number_input(
+                        "📅 Plazo en meses:",
+                        min_value=1,
+                        max_value=24,
+                        value=6,
+                        step=1,
+                        help="Número de meses para pagar"
+                    )
                 
                 with col2:
-                    st.metric("💰 Interés Total", f"${interes_total:,.2f}")
+                    proposito = st.text_area(
+                        "📋 Motivo del préstamo:",
+                        placeholder="Describe para qué necesitas el préstamo...",
+                        height=100
+                    )
+                    
+                    fecha_solicitud = st.date_input(
+                        "📅 Fecha de solicitud:",
+                        value=datetime.now()
+                    )
                 
-                with col3:
-                    st.metric("🧮 Total a Pagar", f"${total_pagar:,.2f}")
+                # Calcular detalles
+                if monto_prestamo > 0:
+                    st.markdown("---")
+                    st.subheader("🧮 Detalles del Préstamo")
+                    
+                    # Calcular interés simple (ejemplo: 5% anual)
+                    tasa_interes_anual = 0.05
+                    interes_total = monto_prestamo * tasa_interes_anual * (plazo_meses / 12)
+                    total_pagar = monto_prestamo + interes_total
+                    pago_mensual = total_pagar / plazo_meses
+                    fecha_vencimiento = fecha_solicitud + relativedelta(months=plazo_meses)
+                    
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    with col1:
+                        st.metric("💵 Monto Principal", f"${monto_prestamo:,.2f}")
+                    
+                    with col2:
+                        st.metric("💰 Interés Total", f"${interes_total:,.2f}")
+                    
+                    with col3:
+                        st.metric("🧮 Total a Pagar", f"${total_pagar:,.2f}")
+                    
+                    with col4:
+                        st.metric("📅 Pago Mensual", f"${pago_mensual:,.2f}")
+                    
+                    st.info(f"""
+                    **📊 Desglose:**
+                    - **Interés total:** ${interes_total:,.2f}
+                    - **Total a pagar:** ${total_pagar:,.2f}
+                    - **Pago mensual:** ${pago_mensual:,.2f} x {plazo_meses} meses
+                    - **Fecha de vencimiento:** {fecha_vencimiento.strftime('%d/%m/%Y')}
+                    """)
                 
-                with col4:
-                    st.metric("📅 Pago Mensual", f"${pago_mensual:,.2f}")
-                
-                st.info(f"""
-                **📊 Desglose:**
-                - **Interés total:** ${interes_total:,.2f}
-                - **Total a pagar:** ${total_pagar:,.2f}
-                - **Pago mensual:** ${pago_mensual:,.2f} x {plazo_meses} meses
-                - **Fecha de vencimiento:** {fecha_vencimiento.strftime('%d/%m/%Y')}
-                """)
-            
-            # ✅ CORRECCIÓN: Usar st.form_submit_button() en lugar de st.button()
+                form_content_ready = True
+        
+        # ✅ SIEMPRE mostrar el botón de envío, pero deshabilitado si no hay miembro válido
+        if miembro_seleccionado and miembro_valido and form_content_ready:
             submitted = st.form_submit_button(
                 "✅ Aprobar Préstamo", 
                 use_container_width=True,
                 type="primary"
             )
-            
-            # Validar cuando se envía el formulario
-            if submitted:
-                if monto_prestamo > 0 and proposito:
-                    guardar_prestamo_individual(
-                        miembro_seleccionado, 
-                        monto_prestamo, 
-                        plazo_meses, 
-                        proposito, 
-                        fecha_solicitud,
-                        fecha_vencimiento
-                    )
-                else:
-                    st.error("❌ Completa todos los campos obligatorios")
+        else:
+            submitted = st.form_submit_button(
+                "✅ Aprobar Préstamo", 
+                use_container_width=True,
+                type="primary",
+                disabled=True  # Deshabilitar si no hay miembro válido
+            )
+        
+        # Validar cuando se envía el formulario
+        if submitted:
+            if monto_prestamo > 0 and proposito:
+                guardar_prestamo_individual(
+                    miembro_seleccionado, 
+                    monto_prestamo, 
+                    plazo_meses, 
+                    proposito, 
+                    fecha_solicitud,
+                    fecha_vencimiento
+                )
+            else:
+                st.error("❌ Completa todos los campos obligatorios")
 
 def buscar_miembro_prestamo():
-    """Busca y valida un miembro para préstamo"""
+    """Busca y valida un miembro para préstamo - VERSIÓN MEJORADA"""
     try:
         conexion = obtener_conexion()
         if conexion:
@@ -324,7 +349,7 @@ def buscar_miembro_prestamo():
                     COALESCE(SUM(a.monto), 0) as ahorro_actual,
                     COUNT(p.id_prestamo) as prestamos_activos
                 FROM miembrogapc m
-                LEFT JOIN aporte a ON m.id_miembro = a.id_miembro
+                LEFT JOIN aporte a ON m.id_miembro = a.id_miembro AND a.tipo = 'Ahorro'
                 LEFT JOIN prestamo p ON m.id_miembro = p.id_miembro AND p.estado = 'aprobado'
                 WHERE m.id_grupo = %s
                 GROUP BY m.id_miembro, m.nombre, m.telefono
@@ -336,52 +361,37 @@ def buscar_miembro_prestamo():
             conexion.close()
             
             if miembros:
-                # Filtrar miembros que no pueden solicitar préstamo
-                miembros_validos = []
-                for miembro in miembros:
-                    puede_solicitar = True
-                    motivo = ""
-                    
-                    # Verificar si ya tiene préstamos activos
-                    if miembro['prestamos_activos'] > 0:
-                        puede_solicitar = False
-                        motivo = "❌ Ya tiene un préstamo activo"
-                    
-                    # Verificar si tiene ahorro suficiente
-                    if miembro['ahorro_actual'] <= 0:
-                        puede_solicitar = False
-                        motivo = "❌ No tiene ahorro suficiente"
-                    
-                    if puede_solicitar:
-                        miembros_validos.append(miembro)
-                    else:
-                        # Agregar con motivo para mostrar en la lista
-                        miembro['motivo_rechazo'] = motivo
-                        miembros_validos.append(miembro)
-                
                 # Crear lista de opciones
-                opciones = []
-                for miembro in miembros_validos:
-                    if 'motivo_rechazo' in miembro:
-                        opciones.append(f"❌ {miembro['id_miembro']} - {miembro['nombre']} ({miembro['motivo_rechazo']})")
+                opciones = ["Selecciona un miembro"]
+                miembros_info = {}
+                
+                for miembro in miembros:
+                    if miembro['prestamos_activos'] > 0:
+                        opciones.append(f"❌ {miembro['id_miembro']} - {miembro['nombre']} (Ya tiene préstamo activo)")
+                        miembros_info[miembro['id_miembro']] = {**miembro, 'puede_solicitar': False}
+                    elif miembro['ahorro_actual'] <= 0:
+                        opciones.append(f"❌ {miembro['id_miembro']} - {miembro['nombre']} (Sin ahorro suficiente)")
+                        miembros_info[miembro['id_miembro']] = {**miembro, 'puede_solicitar': False}
                     else:
                         opciones.append(f"✅ {miembro['id_miembro']} - {miembro['nombre']} (Ahorro: ${miembro['ahorro_actual']:,.2f})")
+                        miembros_info[miembro['id_miembro']] = {**miembro, 'puede_solicitar': True}
                 
-                miembro_seleccionado = st.selectbox(
+                miembro_seleccionado_opcion = st.selectbox(
                     "👤 Selecciona el miembro solicitante:",
                     opciones,
                     key="selector_miembro_prestamo_individual"
                 )
                 
-                if miembro_seleccionado and miembro_seleccionado.startswith("✅"):
+                if miembro_seleccionado_opcion and miembro_seleccionado_opcion != "Selecciona un miembro":
                     # Extraer ID del miembro seleccionado
-                    miembro_id = int(miembro_seleccionado.split(" - ")[0].replace("✅ ", ""))
-                    miembro_info = next(m for m in miembros_validos if m['id_miembro'] == miembro_id and 'motivo_rechazo' not in m)
-                    return miembro_info
-                elif miembro_seleccionado and miembro_seleccionado.startswith("❌"):
-                    st.error("Este miembro no puede solicitar préstamos en este momento")
-                    return None
+                    miembro_id = int(miembro_seleccionado_opcion.split(" - ")[0].replace("✅ ", "").replace("❌ ", ""))
+                    miembro_info = miembros_info.get(miembro_id)
                     
+                    if miembro_info and miembro_info['puede_solicitar']:
+                        return miembro_info
+                    else:
+                        return miembro_info  # Devuelve la info aunque no pueda solicitar
+                        
             else:
                 st.info("📝 No hay miembros en este grupo.")
                 return None
