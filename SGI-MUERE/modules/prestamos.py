@@ -22,7 +22,7 @@ def obtener_conexion():
         return None
 
 def mostrar_modulo_prestamos():
-    """Módulo de gestión de préstamos"""
+    """Módulo especializado de préstamos - Vista y gestión"""
     
     # Header del módulo con botón de volver
     col1, col2 = st.columns([3, 1])
@@ -38,22 +38,24 @@ def mostrar_modulo_prestamos():
     # Menú de opciones
     opcion = st.radio(
         "Selecciona una acción:",
-        ["📋 Préstamos Activos", "✅ Préstamos Pagados", "📊 Historial Completo"],
+        ["📋 Ver Todos los Préstamos", "➕ Nuevo Préstamo", "📊 Préstamos Activos", "✅ Préstamos Pagados"],
         horizontal=True
     )
     
     st.markdown("---")
     
-    if opcion == "📋 Préstamos Activos":
+    if opcion == "📋 Ver Todos los Préstamos":
+        mostrar_todos_prestamos()
+    elif opcion == "➕ Nuevo Préstamo":
+        mostrar_nuevo_prestamo_individual()
+    elif opcion == "📊 Préstamos Activos":
         mostrar_prestamos_activos()
     elif opcion == "✅ Préstamos Pagados":
         mostrar_prestamos_pagados()
-    elif opcion == "📊 Historial Completo":
-        mostrar_historial_completo()
 
-def mostrar_prestamos_activos():
-    """Muestra los préstamos activos con seguimiento de pagos"""
-    st.subheader("📋 Préstamos Activos")
+def mostrar_todos_prestamos():
+    """Muestra todos los préstamos con filtros"""
+    st.subheader("📋 Todos los Préstamos")
     
     try:
         conexion = obtener_conexion()
@@ -62,7 +64,7 @@ def mostrar_prestamos_activos():
             
             id_grupo = st.session_state.usuario.get('id_grupo', 1)
             
-            # Obtener préstamos activos con información de pagos
+            # Obtener todos los préstamos del grupo
             cursor.execute("""
                 SELECT 
                     p.id_prestamo,
@@ -71,17 +73,389 @@ def mostrar_prestamos_activos():
                     p.proposito,
                     p.fecha_vencimiento,
                     p.plazo_meses,
-                    r.fecha as fecha_aprobacion,
+                    p.estado,
+                    p.fecha_solicitud,
                     COALESCE(SUM(pg.monto_capital), 0) as total_pagado,
                     (p.monto_prestado - COALESCE(SUM(pg.monto_capital), 0)) as saldo_pendiente,
-                    DATEDIFF(p.fecha_vencimiento, CURDATE()) as dias_vencimiento
+                    DATEDIFF(p.fecha_vencimiento, CURDATE()) as dias_restantes
                 FROM prestamo p
                 JOIN miembrogapc m ON p.id_miembro = m.id_miembro
-                JOIN reunion r ON p.id_reunion = r.id_reunion
+                LEFT JOIN pago pg ON p.id_prestamo = pg.id_prestamo
+                WHERE m.id_grupo = %s
+                GROUP BY p.id_prestamo, m.nombre, p.monto_prestado, p.proposito, 
+                         p.fecha_vencimiento, p.plazo_meses, p.estado, p.fecha_solicitud
+                ORDER BY p.estado, p.fecha_vencimiento DESC
+            """, (id_grupo,))
+            
+            prestamos = cursor.fetchall()
+            cursor.close()
+            conexion.close()
+            
+            if prestamos:
+                # Filtros
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    estados = ["Todos"] + list(set(p['estado'] for p in prestamos))
+                    estado_filtro = st.selectbox("🔍 Filtrar por estado:", estados)
+                
+                with col2:
+                    miembros = ["Todos"] + list(set(p['miembro'] for p in prestamos))
+                    miembro_filtro = st.selectbox("👤 Filtrar por miembro:", miembros)
+                
+                with col3:
+                    situacion = ["Todas", "En tiempo", "Por vencer", "Vencidos"]
+                    situacion_filtro = st.selectbox("📅 Filtrar por situación:", situacion)
+                
+                # Aplicar filtros
+                prestamos_filtrados = prestamos
+                if estado_filtro != "Todos":
+                    prestamos_filtrados = [p for p in prestamos_filtrados if p['estado'] == estado_filtro]
+                if miembro_filtro != "Todos":
+                    prestamos_filtrados = [p for p in prestamos_filtrados if p['miembro'] == miembro_filtro]
+                if situacion_filtro != "Todas":
+                    if situacion_filtro == "Vencidos":
+                        prestamos_filtrados = [p for p in prestamos_filtrados if p['dias_restantes'] < 0]
+                    elif situacion_filtro == "Por vencer":
+                        prestamos_filtrados = [p for p in prestamos_filtrados if 0 <= p['dias_restantes'] <= 30]
+                    elif situacion_filtro == "En tiempo":
+                        prestamos_filtrados = [p for p in prestamos_filtrados if p['dias_restantes'] > 30]
+                
+                # Estadísticas
+                total_prestamos = len(prestamos_filtrados)
+                total_pendiente = sum(p['saldo_pendiente'] for p in prestamos_filtrados)
+                total_prestado = sum(p['monto_prestado'] for p in prestamos_filtrados)
+                
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("📊 Total Préstamos", total_prestamos)
+                with col2:
+                    st.metric("💰 Total Prestado", f"${total_prestado:,.2f}")
+                with col3:
+                    st.metric("📉 Total Pendiente", f"${total_pendiente:,.2f}")
+                with col4:
+                    porcentaje_pagado = ((total_prestado - total_pendiente) / total_prestado * 100) if total_prestado > 0 else 0
+                    st.metric("📈 % Pagado", f"{porcentaje_pagado:.1f}%")
+                
+                st.markdown("---")
+                
+                # Mostrar préstamos
+                for prestamo in prestamos_filtrados:
+                    # Determinar color según situación
+                    if prestamo['dias_restantes'] < 0:
+                        color = "🔴"  # Vencido
+                        situacion_texto = f"VENCIDO (-{abs(prestamo['dias_restantes'])} días)"
+                    elif prestamo['dias_restantes'] <= 30:
+                        color = "🟡"  # Por vencer
+                        situacion_texto = f"Por vencer ({prestamo['dias_restantes']} días)"
+                    else:
+                        color = "🟢"  # En tiempo
+                        situacion_texto = f"En tiempo ({prestamo['dias_restantes']} días)"
+                    
+                    with st.expander(f"{color} #{prestamo['id_prestamo']} - {prestamo['miembro']} - ${prestamo['monto_prestado']:,.2f} - {prestamo['estado']}", expanded=False):
+                        col1, col2, col3 = st.columns(3)
+                        
+                        with col1:
+                            st.write(f"**👤 Miembro:** {prestamo['miembro']}")
+                            st.write(f"**💵 Monto Original:** ${prestamo['monto_prestado']:,.2f}")
+                            st.write(f"**📅 Fecha Solicitud:** {prestamo['fecha_solicitud']}")
+                            st.write(f"**📋 Propósito:** {prestamo['proposito']}")
+                        
+                        with col2:
+                            st.write(f"**💰 Total Pagado:** ${prestamo['total_pagado']:,.2f}")
+                            st.write(f"**📉 Saldo Pendiente:** ${prestamo['saldo_pendiente']:,.2f}")
+                            st.write(f"**📅 Fecha Vencimiento:** {prestamo['fecha_vencimiento']}")
+                            st.write(f"**⏱️ Días Restantes:** {prestamo['dias_restantes']}")
+                        
+                        with col3:
+                            st.write(f"**🔒 Estado:** {prestamo['estado']}")
+                            st.write(f"**📊 Situación:** {situacion_texto}")
+                            st.write(f"**⏳ Plazo:** {prestamo['plazo_meses']} meses")
+                            
+                            # Mostrar historial de pagos
+                            if st.button("📋 Ver Historial de Pagos", key=f"hist_{prestamo['id_prestamo']}"):
+                                mostrar_historial_pagos(prestamo['id_prestamo'])
+                            
+                            # Botón para registrar pago
+                            if prestamo['estado'] == 'aprobado' and prestamo['saldo_pendiente'] > 0:
+                                if st.button("💳 Registrar Pago", key=f"pago_{prestamo['id_prestamo']}"):
+                                    st.session_state.registrar_pago_prestamo = prestamo['id_prestamo']
+                                    st.rerun()
+            else:
+                st.info("📝 No hay préstamos registrados en este grupo.")
+                
+    except Exception as e:
+        st.error(f"❌ Error al cargar préstamos: {e}")
+
+def mostrar_nuevo_prestamo_individual():
+    """Formulario para nuevo préstamo fuera de reunión"""
+    st.subheader("➕ Nuevo Préstamo")
+    
+    st.info("""
+    **💡 Información:**
+    Al registrar un préstamo aquí, se simula lo que pasaría en una reunión:
+    - Se crea el préstamo con estado 'aprobado'
+    - Se afecta el saldo neto del miembro automáticamente
+    - El préstamo queda listo para seguimiento
+    """)
+    
+    with st.form("form_nuevo_prestamo_individual"):
+        # Buscar miembro
+        miembro_seleccionado = buscar_miembro_prestamo()
+        
+        if miembro_seleccionado:
+            st.markdown("---")
+            
+            # Mostrar información del miembro
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.info(f"**👤 Miembro:** {miembro_seleccionado['nombre']}")
+            with col2:
+                st.info(f"**💰 Ahorro Actual:** ${miembro_seleccionado['ahorro_actual']:,.2f}")
+            with col3:
+                maximo_permitido = miembro_seleccionado['ahorro_actual'] * 0.8  # 80% del ahorro
+                st.info(f"**📈 Máximo Recomendado:** ${maximo_permitido:,.2f}")
+            
+            # Datos del préstamo
+            st.subheader("📝 Datos del Préstamo")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                monto_prestamo = st.number_input(
+                    "💵 Monto a solicitar:",
+                    min_value=0.0,
+                    max_value=float(maximo_permitido),
+                    value=0.0,
+                    step=100.0,
+                    help=f"Máximo recomendado: ${maximo_permitido:,.2f}"
+                )
+                
+                plazo_meses = st.number_input(
+                    "📅 Plazo en meses:",
+                    min_value=1,
+                    max_value=24,
+                    value=6,
+                    step=1,
+                    help="Número de meses para pagar"
+                )
+            
+            with col2:
+                proposito = st.text_area(
+                    "📋 Motivo del préstamo:",
+                    placeholder="Describe para qué necesitas el préstamo...",
+                    height=100
+                )
+                
+                fecha_solicitud = st.date_input(
+                    "📅 Fecha de solicitud:",
+                    value=datetime.now()
+                )
+            
+            # Calcular detalles
+            if monto_prestamo > 0:
+                st.markdown("---")
+                st.subheader("🧮 Detalles del Préstamo")
+                
+                # Calcular interés simple (ejemplo: 5% anual)
+                tasa_interes_anual = 0.05
+                interes_total = monto_prestamo * tasa_interes_anual * (plazo_meses / 12)
+                total_pagar = monto_prestamo + interes_total
+                pago_mensual = total_pagar / plazo_meses
+                fecha_vencimiento = fecha_solicitud + relativedelta(months=plazo_meses)
+                
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.metric("💵 Monto Principal", f"${monto_prestamo:,.2f}")
+                
+                with col2:
+                    st.metric("💰 Interés Total", f"${interes_total:,.2f}")
+                
+                with col3:
+                    st.metric("🧮 Total a Pagar", f"${total_pagar:,.2f}")
+                
+                with col4:
+                    st.metric("📅 Pago Mensual", f"${pago_mensual:,.2f}")
+                
+                st.info(f"""
+                **📊 Desglose:**
+                - **Interés total:** ${interes_total:,.2f}
+                - **Total a pagar:** ${total_pagar:,.2f}
+                - **Pago mensual:** ${pago_mensual:,.2f} x {plazo_meses} meses
+                - **Fecha de vencimiento:** {fecha_vencimiento.strftime('%d/%m/%Y')}
+                """)
+            
+            # Botón de envío
+            if st.form_submit_button("✅ Aprobar Préstamo", use_container_width=True):
+                if monto_prestamo > 0 and proposito:
+                    guardar_prestamo_individual(
+                        miembro_seleccionado, 
+                        monto_prestamo, 
+                        plazo_meses, 
+                        proposito, 
+                        fecha_solicitud,
+                        fecha_vencimiento
+                    )
+                else:
+                    st.error("❌ Completa todos los campos obligatorios")
+
+def buscar_miembro_prestamo():
+    """Busca y valida un miembro para préstamo"""
+    try:
+        conexion = obtener_conexion()
+        if conexion:
+            cursor = conexion.cursor()
+            
+            id_grupo = st.session_state.usuario.get('id_grupo', 1)
+            
+            # Obtener miembros con su ahorro y préstamos activos
+            cursor.execute("""
+                SELECT 
+                    m.id_miembro,
+                    m.nombre,
+                    m.telefono,
+                    COALESCE(SUM(a.monto), 0) as ahorro_actual,
+                    COUNT(p.id_prestamo) as prestamos_activos
+                FROM miembrogapc m
+                LEFT JOIN aporte a ON m.id_miembro = a.id_miembro
+                LEFT JOIN prestamo p ON m.id_miembro = p.id_miembro AND p.estado = 'aprobado'
+                WHERE m.id_grupo = %s
+                GROUP BY m.id_miembro, m.nombre, m.telefono
+                ORDER BY m.nombre
+            """, (id_grupo,))
+            
+            miembros = cursor.fetchall()
+            cursor.close()
+            conexion.close()
+            
+            if miembros:
+                # Filtrar miembros que no pueden solicitar préstamo
+                miembros_validos = []
+                for miembro in miembros:
+                    puede_solicitar = True
+                    motivo = ""
+                    
+                    # Verificar si ya tiene préstamos activos
+                    if miembro['prestamos_activos'] > 0:
+                        puede_solicitar = False
+                        motivo = "❌ Ya tiene un préstamo activo"
+                    
+                    # Verificar si tiene ahorro suficiente
+                    if miembro['ahorro_actual'] <= 0:
+                        puede_solicitar = False
+                        motivo = "❌ No tiene ahorro suficiente"
+                    
+                    if puede_solicitar:
+                        miembros_validos.append(miembro)
+                    else:
+                        # Agregar con motivo para mostrar en la lista
+                        miembro['motivo_rechazo'] = motivo
+                        miembros_validos.append(miembro)
+                
+                # Crear lista de opciones
+                opciones = []
+                for miembro in miembros_validos:
+                    if 'motivo_rechazo' in miembro:
+                        opciones.append(f"❌ {miembro['id_miembro']} - {miembro['nombre']} ({miembro['motivo_rechazo']})")
+                    else:
+                        opciones.append(f"✅ {miembro['id_miembro']} - {miembro['nombre']} (Ahorro: ${miembro['ahorro_actual']:,.2f})")
+                
+                miembro_seleccionado = st.selectbox(
+                    "👤 Selecciona el miembro solicitante:",
+                    opciones,
+                    key="selector_miembro_prestamo_individual"
+                )
+                
+                if miembro_seleccionado and miembro_seleccionado.startswith("✅"):
+                    # Extraer ID del miembro seleccionado
+                    miembro_id = int(miembro_seleccionado.split(" - ")[0].replace("✅ ", ""))
+                    miembro_info = next(m for m in miembros_validos if m['id_miembro'] == miembro_id and 'motivo_rechazo' not in m)
+                    return miembro_info
+                elif miembro_seleccionado and miembro_seleccionado.startswith("❌"):
+                    st.error("Este miembro no puede solicitar préstamos en este momento")
+                    return None
+                    
+            else:
+                st.info("📝 No hay miembros en este grupo.")
+                return None
+                
+    except Exception as e:
+        st.error(f"❌ Error al cargar miembros: {e}")
+    
+    return None
+
+def guardar_prestamo_individual(miembro, monto, plazo_meses, proposito, fecha_solicitud, fecha_vencimiento):
+    """Guarda un préstamo individual fuera de reunión"""
+    try:
+        conexion = obtener_conexion()
+        if conexion:
+            cursor = conexion.cursor()
+            
+            # Insertar préstamo
+            cursor.execute("""
+                INSERT INTO prestamo (
+                    id_miembro, monto_prestado, proposito, fecha_solicitud,
+                    fecha_vencimiento, plazo_meses, estado
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (
+                miembro['id_miembro'],
+                monto,
+                proposito,
+                fecha_solicitud,
+                fecha_vencimiento,
+                plazo_meses,
+                'aprobado'
+            ))
+            
+            conexion.commit()
+            cursor.close()
+            conexion.close()
+            
+            st.success("🎉 ¡Préstamo aprobado exitosamente!")
+            st.balloons()
+            
+            # Mostrar resumen
+            st.info(f"""
+            **📋 Resumen del Préstamo:**
+            - **Miembro:** {miembro['nombre']}
+            - **Monto:** ${monto:,.2f}
+            - **Plazo:** {plazo_meses} meses
+            - **Vencimiento:** {fecha_vencimiento.strftime('%d/%m/%Y')}
+            - **Estado:** Aprobado
+            """)
+            
+    except Exception as e:
+        st.error(f"❌ Error al guardar préstamo: {e}")
+
+def mostrar_prestamos_activos():
+    """Muestra solo los préstamos activos"""
+    st.subheader("📊 Préstamos Activos")
+    
+    try:
+        conexion = obtener_conexion()
+        if conexion:
+            cursor = conexion.cursor()
+            
+            id_grupo = st.session_state.usuario.get('id_grupo', 1)
+            
+            # Obtener préstamos activos
+            cursor.execute("""
+                SELECT 
+                    p.id_prestamo,
+                    m.nombre as miembro,
+                    p.monto_prestado,
+                    p.proposito,
+                    p.fecha_vencimiento,
+                    p.plazo_meses,
+                    COALESCE(SUM(pg.monto_capital), 0) as total_pagado,
+                    (p.monto_prestado - COALESCE(SUM(pg.monto_capital), 0)) as saldo_pendiente,
+                    DATEDIFF(p.fecha_vencimiento, CURDATE()) as dias_restantes
+                FROM prestamo p
+                JOIN miembrogapc m ON p.id_miembro = m.id_miembro
                 LEFT JOIN pago pg ON p.id_prestamo = pg.id_prestamo
                 WHERE m.id_grupo = %s AND p.estado = 'aprobado'
                 GROUP BY p.id_prestamo, m.nombre, p.monto_prestado, p.proposito, 
-                         p.fecha_vencimiento, p.plazo_meses, r.fecha
+                         p.fecha_vencimiento, p.plazo_meses
                 HAVING saldo_pendiente > 0
                 ORDER BY p.fecha_vencimiento ASC
             """, (id_grupo,))
@@ -92,192 +466,56 @@ def mostrar_prestamos_activos():
             
             if prestamos_activos:
                 # Estadísticas
-                total_prestamos = len(prestamos_activos)
-                total_prestado = sum(p['monto_prestado'] for p in prestamos_activos)
+                total_activos = len(prestamos_activos)
                 total_pendiente = sum(p['saldo_pendiente'] for p in prestamos_activos)
-                total_pagado = sum(p['total_pagado'] for p in prestamos_activos)
+                total_prestado = sum(p['monto_prestado'] for p in prestamos_activos)
                 
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
-                    st.metric("📊 Préstamos Activos", total_prestamos)
+                    st.metric("📊 Préstamos Activos", total_activos)
                 with col2:
                     st.metric("💰 Total Prestado", f"${total_prestado:,.2f}")
                 with col3:
-                    st.metric("💵 Total Pagado", f"${total_pagado:,.2f}")
-                with col4:
                     st.metric("📉 Total Pendiente", f"${total_pendiente:,.2f}")
+                with col4:
+                    vencidos = len([p for p in prestamos_activos if p['dias_restantes'] < 0])
+                    st.metric("⚠️ Préstamos Vencidos", vencidos)
                 
                 st.markdown("---")
                 
                 for prestamo in prestamos_activos:
-                    # Calcular porcentaje pagado
-                    porcentaje_pagado = (prestamo['total_pagado'] / prestamo['monto_prestado']) * 100 if prestamo['monto_prestado'] > 0 else 0
-                    
-                    # Determinar estado según días de vencimiento
-                    if prestamo['dias_vencimiento'] < 0:
-                        estado_icono = "🔴"
-                        estado_texto = f"VENCIDO ({abs(prestamo['dias_vencimiento'])} días)"
-                    elif prestamo['dias_vencimiento'] <= 7:
-                        estado_icono = "🟡"
-                        estado_texto = f"Por vencer ({prestamo['dias_vencimiento']} días)"
+                    # Determinar color según días restantes
+                    if prestamo['dias_restantes'] < 0:
+                        color = "🔴"  # Vencido
+                        estado = f"VENCIDO (-{abs(prestamo['dias_restantes'])} días)"
+                    elif prestamo['dias_restantes'] <= 30:
+                        color = "🟡"  # Por vencer
+                        estado = f"Por vencer ({prestamo['dias_restantes']} días)"
                     else:
-                        estado_icono = "🟢"
-                        estado_texto = f"Al día ({prestamo['dias_vencimiento']} días)"
+                        color = "🟢"  # En tiempo
+                        estado = f"En tiempo ({prestamo['dias_restantes']} días)"
                     
-                    with st.expander(f"{estado_icono} {prestamo['miembro']} - ${prestamo['monto_prestado']:,.2f} - {estado_texto}", expanded=False):
-                        col1, col2 = st.columns(2)
-                        
+                    with st.expander(f"{color} {prestamo['miembro']} - ${prestamo['monto_prestado']:,.2f} - {estado}", expanded=False):
+                        col1, col2, col3 = st.columns(3)
                         with col1:
-                            st.write(f"**👤 Miembro:** {prestamo['miembro']}")
+                            st.write(f"**💵 Monto Original:** ${prestamo['monto_prestado']:,.2f}")
+                            st.write(f"**💰 Total Pagado:** ${prestamo['total_pagado']:,.2f}")
                             st.write(f"**📋 Propósito:** {prestamo['proposito']}")
-                            st.write(f"**💰 Monto Prestado:** ${prestamo['monto_prestado']:,.2f}")
-                            st.write(f"**📅 Fecha Aprobación:** {prestamo['fecha_aprobacion']}")
-                        
                         with col2:
-                            st.write(f"**💵 Total Pagado:** ${prestamo['total_pagado']:,.2f}")
                             st.write(f"**📉 Saldo Pendiente:** ${prestamo['saldo_pendiente']:,.2f}")
-                            st.write(f"**📆 Vencimiento:** {prestamo['fecha_vencimiento']}")
-                            st.write(f"**⏰ Plazo:** {prestamo['plazo_meses']} meses")
+                            st.write(f"**📅 Fecha Vencimiento:** {prestamo['fecha_vencimiento']}")
+                            st.write(f"**⏱️ Días Restantes:** {prestamo['dias_restantes']}")
+                        with col3:
+                            st.write(f"**⏳ Plazo:** {prestamo['plazo_meses']} meses")
                             
-                            # Barra de progreso
-                            st.write(f"**📊 Progreso de Pago:** {porcentaje_pagado:.1f}%")
-                            st.progress(min(porcentaje_pagado / 100, 1.0))
-                        
-                        # Mostrar historial de pagos
-                        mostrar_historial_pagos_prestamo(prestamo['id_prestamo'])
-                        
-                        # Botones de acción
-                        col_btn1, col_btn2 = st.columns(2)
-                        with col_btn1:
-                            if st.button("💳 Registrar Pago Manual", key=f"pago_{prestamo['id_prestamo']}"):
-                                st.session_state[f'mostrar_form_pago_{prestamo["id_prestamo"]}'] = True
-                        
-                        with col_btn2:
-                            if st.button("✅ Marcar como Pagado", key=f"marcar_pagado_{prestamo['id_prestamo']}"):
-                                marcar_prestamo_como_pagado(prestamo['id_prestamo'])
-                                st.rerun()
-                        
-                        # Formulario de pago manual
-                        if st.session_state.get(f'mostrar_form_pago_{prestamo["id_prestamo"]}', False):
-                            with st.form(f"form_pago_{prestamo['id_prestamo']}"):
-                                st.write("**💳 Registrar Pago Manual**")
-                                col1, col2 = st.columns(2)
-                                with col1:
-                                    monto_pago = st.number_input(
-                                        "💵 Monto del pago:",
-                                        min_value=0.0,
-                                        max_value=float(prestamo['saldo_pendiente']),
-                                        value=min(float(prestamo['saldo_pendiente']), 50.0),
-                                        step=10.0
-                                    )
-                                with col2:
-                                    fecha_pago = st.date_input(
-                                        "📅 Fecha del pago:",
-                                        value=datetime.now()
-                                    )
-                                
-                                col_submit, col_cancel = st.columns(2)
-                                with col_submit:
-                                    if st.form_submit_button("✅ Guardar Pago", use_container_width=True):
-                                        if monto_pago > 0:
-                                            registrar_pago_manual(prestamo['id_prestamo'], monto_pago, fecha_pago)
-                                            st.session_state[f'mostrar_form_pago_{prestamo["id_prestamo"]}'] = False
-                                            st.rerun()
-                                with col_cancel:
-                                    if st.form_submit_button("❌ Cancelar", use_container_width=True):
-                                        st.session_state[f'mostrar_form_pago_{prestamo["id_prestamo"]}'] = False
-                                        st.rerun()
+                            # Botón para registrar pago
+                            if st.button("💳 Registrar Pago", key=f"pago_act_{prestamo['id_prestamo']}"):
+                                registrar_pago_prestamo(prestamo['id_prestamo'])
             else:
                 st.success("✅ No hay préstamos activos en este momento.")
                 
     except Exception as e:
         st.error(f"❌ Error al cargar préstamos activos: {e}")
-
-def mostrar_historial_pagos_prestamo(id_prestamo):
-    """Muestra el historial de pagos de un préstamo específico"""
-    try:
-        conexion = obtener_conexion()
-        if conexion:
-            cursor = conexion.cursor()
-            
-            # Obtener pagos del préstamo
-            cursor.execute("""
-                SELECT 
-                    pg.monto_capital,
-                    pg.fecha_pago,
-                    r.fecha as fecha_reunion
-                FROM pago pg
-                LEFT JOIN reunion r ON pg.id_reunion = r.id_reunion
-                WHERE pg.id_prestamo = %s
-                ORDER BY pg.fecha_pago DESC
-            """, (id_prestamo,))
-            
-            pagos = cursor.fetchall()
-            cursor.close()
-            conexion.close()
-            
-            if pagos:
-                st.markdown("**💳 Historial de Pagos:**")
-                for pago in pagos:
-                    col1, col2, col3 = st.columns([2, 1, 1])
-                    with col1:
-                        st.write(f"📅 {pago['fecha_pago']}")
-                    with col2:
-                        st.write(f"💵 ${pago['monto_capital']:,.2f}")
-                    with col3:
-                        if pago['fecha_reunion']:
-                            st.write(f"🎯 Reunión: {pago['fecha_reunion']}")
-            else:
-                st.info("📝 No hay pagos registrados para este préstamo.")
-                
-    except Exception as e:
-        st.error(f"❌ Error al cargar historial de pagos: {e}")
-
-def registrar_pago_manual(id_prestamo, monto, fecha_pago):
-    """Registra un pago manual para un préstamo"""
-    try:
-        conexion = obtener_conexion()
-        if conexion:
-            cursor = conexion.cursor()
-            
-            # Insertar pago (sin id_reunion ya que es manual)
-            cursor.execute("""
-                INSERT INTO pago (id_prestamo, fecha_pago, monto_capital)
-                VALUES (%s, %s, %s)
-            """, (id_prestamo, fecha_pago, monto))
-            
-            conexion.commit()
-            cursor.close()
-            conexion.close()
-            
-            st.success(f"✅ Pago de ${monto:,.2f} registrado exitosamente!")
-            
-    except Exception as e:
-        st.error(f"❌ Error al registrar pago: {e}")
-
-def marcar_prestamo_como_pagado(id_prestamo):
-    """Marca un préstamo como pagado completamente"""
-    try:
-        conexion = obtener_conexion()
-        if conexion:
-            cursor = conexion.cursor()
-            
-            # Cambiar estado a 'rechazado' (usamos este como 'pagado/completado')
-            # Nota: Podrías necesitar agregar un estado 'pagado' en la tabla
-            cursor.execute("""
-                UPDATE prestamo 
-                SET estado = 'rechazado'
-                WHERE id_prestamo = %s
-            """, (id_prestamo,))
-            
-            conexion.commit()
-            cursor.close()
-            conexion.close()
-            
-            st.success("✅ Préstamo marcado como pagado completamente!")
-            
-    except Exception as e:
-        st.error(f"❌ Error al marcar préstamo como pagado: {e}")
 
 def mostrar_prestamos_pagados():
     """Muestra los préstamos que han sido pagados completamente"""
@@ -290,25 +528,25 @@ def mostrar_prestamos_pagados():
             
             id_grupo = st.session_state.usuario.get('id_grupo', 1)
             
-            # Obtener préstamos donde el saldo pendiente es 0 o estado es rechazado
+            # Obtener préstamos pagados
             cursor.execute("""
                 SELECT 
                     p.id_prestamo,
                     m.nombre as miembro,
                     p.monto_prestado,
                     p.proposito,
+                    p.fecha_solicitud,
                     p.fecha_vencimiento,
-                    r.fecha as fecha_aprobacion,
+                    p.plazo_meses,
                     COALESCE(SUM(pg.monto_capital), 0) as total_pagado,
                     MAX(pg.fecha_pago) as fecha_ultimo_pago
                 FROM prestamo p
                 JOIN miembrogapc m ON p.id_miembro = m.id_miembro
-                JOIN reunion r ON p.id_reunion = r.id_reunion
                 LEFT JOIN pago pg ON p.id_prestamo = pg.id_prestamo
-                WHERE m.id_grupo = %s 
-                AND (p.estado = 'rechazado' OR p.monto_prestado <= COALESCE(SUM(pg.monto_capital), 0))
+                WHERE m.id_grupo = %s AND p.estado = 'aprobado'
                 GROUP BY p.id_prestamo, m.nombre, p.monto_prestado, p.proposito, 
-                         p.fecha_vencimiento, r.fecha
+                         p.fecha_solicitud, p.fecha_vencimiento, p.plazo_meses
+                HAVING total_pagado >= p.monto_prestado
                 ORDER BY fecha_ultimo_pago DESC
             """, (id_grupo,))
             
@@ -317,132 +555,31 @@ def mostrar_prestamos_pagados():
             conexion.close()
             
             if prestamos_pagados:
-                st.info(f"📊 Se encontraron {len(prestamos_pagados)} préstamos pagados")
-                
-                # Estadísticas
-                total_monto = sum(p['monto_prestado'] for p in prestamos_pagados)
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.metric("💰 Total Prestado (Pagados)", f"${total_monto:,.2f}")
-                with col2:
-                    st.metric("📊 Cantidad", len(prestamos_pagados))
-                
-                st.markdown("---")
+                st.info(f"📊 Se encontraron {len(prestamos_pagados)} préstamos completamente pagados")
                 
                 for prestamo in prestamos_pagados:
-                    with st.expander(f"✅ {prestamo['miembro']} - ${prestamo['monto_prestado']:,.2f} - {prestamo['proposito'][:50]}...", expanded=False):
+                    with st.expander(f"✅ #{prestamo['id_prestamo']} - {prestamo['miembro']} - ${prestamo['monto_prestado']:,.2f}", expanded=False):
                         col1, col2 = st.columns(2)
                         with col1:
                             st.write(f"**👤 Miembro:** {prestamo['miembro']}")
-                            st.write(f"**📋 Propósito:** {prestamo['proposito']}")
-                            st.write(f"**💰 Monto Prestado:** ${prestamo['monto_prestado']:,.2f}")
+                            st.write(f"**💵 Monto Original:** ${prestamo['monto_prestado']:,.2f}")
+                            st.write(f"**💰 Total Pagado:** ${prestamo['total_pagado']:,.2f}")
+                            st.write(f"**📅 Fecha Solicitud:** {prestamo['fecha_solicitud']}")
                         with col2:
-                            st.write(f"**💵 Total Pagado:** ${prestamo['total_pagado']:,.2f}")
-                            st.write(f"**📅 Fecha Aprobación:** {prestamo['fecha_aprobacion']}")
-                            if prestamo['fecha_ultimo_pago']:
-                                st.write(f"**📆 Último Pago:** {prestamo['fecha_ultimo_pago']}")
-                        
-                        # Mostrar historial de pagos
-                        mostrar_historial_pagos_prestamo(prestamo['id_prestamo'])
+                            st.write(f"**📋 Propósito:** {prestamo['proposito']}")
+                            st.write(f"**📅 Fecha Vencimiento:** {prestamo['fecha_vencimiento']}")
+                            st.write(f"**📅 Último Pago:** {prestamo['fecha_ultimo_pago']}")
+                            st.write(f"**⏳ Plazo:** {prestamo['plazo_meses']} meses")
             else:
-                st.info("📝 No hay préstamos pagados registrados.")
+                st.info("📝 No hay préstamos completamente pagados.")
                 
     except Exception as e:
         st.error(f"❌ Error al cargar préstamos pagados: {e}")
 
-def mostrar_historial_completo():
-    """Muestra el historial completo de todos los préstamos"""
-    st.subheader("📊 Historial Completo de Préstamos")
-    
-    try:
-        conexion = obtener_conexion()
-        if conexion:
-            cursor = conexion.cursor()
-            
-            id_grupo = st.session_state.usuario.get('id_grupo', 1)
-            
-            # Obtener todos los préstamos
-            cursor.execute("""
-                SELECT 
-                    p.id_prestamo,
-                    m.nombre as miembro,
-                    p.monto_prestado,
-                    p.proposito,
-                    p.estado,
-                    p.fecha_vencimiento,
-                    p.plazo_meses,
-                    r.fecha as fecha_aprobacion,
-                    COALESCE(SUM(pg.monto_capital), 0) as total_pagado,
-                    (p.monto_prestado - COALESCE(SUM(pg.monto_capital), 0)) as saldo_pendiente
-                FROM prestamo p
-                JOIN miembrogapc m ON p.id_miembro = m.id_miembro
-                JOIN reunion r ON p.id_reunion = r.id_reunion
-                LEFT JOIN pago pg ON p.id_prestamo = pg.id_prestamo
-                WHERE m.id_grupo = %s
-                GROUP BY p.id_prestamo, m.nombre, p.monto_prestado, p.proposito, 
-                         p.estado, p.fecha_vencimiento, p.plazo_meses, r.fecha
-                ORDER BY r.fecha DESC
-            """, (id_grupo,))
-            
-            todos_prestamos = cursor.fetchall()
-            cursor.close()
-            conexion.close()
-            
-            if todos_prestamos:
-                # Filtros
-                col1, col2 = st.columns(2)
-                with col1:
-                    estados = ["Todos", "aprobado", "rechazado"]
-                    estado_filtro = st.selectbox("🔍 Filtrar por estado:", estados)
-                
-                with col2:
-                    miembros = ["Todos"] + list(set(p['miembro'] for p in todos_prestamos))
-                    miembro_filtro = st.selectbox("👤 Filtrar por miembro:", miembros)
-                
-                # Aplicar filtros
-                prestamos_filtrados = todos_prestamos
-                if estado_filtro != "Todos":
-                    prestamos_filtrados = [p for p in prestamos_filtrados if p['estado'] == estado_filtro]
-                if miembro_filtro != "Todos":
-                    prestamos_filtrados = [p for p in prestamos_filtrados if p['miembro'] == miembro_filtro]
-                
-                # Estadísticas filtradas
-                total_filtrado = len(prestamos_filtrados)
-                monto_total = sum(p['monto_prestado'] for p in prestamos_filtrados)
-                pendiente_total = sum(p['saldo_pendiente'] for p in prestamos_filtrados)
-                
-                st.info(f"📊 Mostrando {total_filtrado} préstamos - Total: ${monto_total:,.2f} - Pendiente: ${pendiente_total:,.2f}")
-                
-                for prestamo in prestamos_filtrados:
-                    # Icono según estado
-                    if prestamo['saldo_pendiente'] <= 0 or prestamo['estado'] == 'rechazado':
-                        icono = "✅"
-                        estado_texto = "Pagado"
-                    elif prestamo['estado'] == 'aprobado':
-                        icono = "💳"
-                        estado_texto = "Activo"
-                    else:
-                        icono = "❌"
-                        estado_texto = prestamo['estado']
-                    
-                    with st.expander(f"{icono} {prestamo['miembro']} - ${prestamo['monto_prestado']:,.2f} - {estado_texto}", expanded=False):
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            st.write(f"**👤 Miembro:** {prestamo['miembro']}")
-                            st.write(f"**📋 Propósito:** {prestamo['proposito']}")
-                            st.write(f"**💰 Monto Prestado:** ${prestamo['monto_prestado']:,.2f}")
-                            st.write(f"**📅 Fecha Aprobación:** {prestamo['fecha_aprobacion']}")
-                        with col2:
-                            st.write(f"**💵 Total Pagado:** ${prestamo['total_pagado']:,.2f}")
-                            st.write(f"**📉 Saldo Pendiente:** ${prestamo['saldo_pendiente']:,.2f}")
-                            st.write(f"**📆 Vencimiento:** {prestamo['fecha_vencimiento']}")
-                            st.write(f"**⏰ Plazo:** {prestamo['plazo_meses']} meses")
-                            st.write(f"**🔒 Estado:** {prestamo['estado']}")
-                        
-                        # Mostrar historial de pagos
-                        mostrar_historial_pagos_prestamo(prestamo['id_prestamo'])
-            else:
-                st.info("📝 No hay préstamos registrados en el historial.")
-                
-    except Exception as e:
-        st.error(f"❌ Error al cargar historial completo: {e}")
+def mostrar_historial_pagos(id_prestamo):
+    """Muestra el historial de pagos de un préstamo"""
+    st.info("🔧 Función de historial de pagos en desarrollo...")
+
+def registrar_pago_prestamo(id_prestamo):
+    """Registra un pago para un préstamo"""
+    st.info("🔧 Función de registro de pago en desarrollo...")
