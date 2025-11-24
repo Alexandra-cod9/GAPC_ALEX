@@ -297,11 +297,15 @@ def mostrar_estado_financiero_completo(miembro):
             for multa in datos_financieros['detalle_multas']:
                 st.write(f"**#{multa['id_multa']}** - ${multa['monto']:,.2f}")
                 st.write(f"  📝 {multa['motivo']}")
-                st.write(f"  📅 {multa['fecha_creacion']}")
                 st.write(f"  🔒 {multa['nombre_estado']}")
                 st.write("---")
         else:
             st.info("✅ No tiene multas pendientes")
+    
+    # SECCIÓN 5: DEBUG - Mostrar datos brutos (temporal para diagnóstico)
+    with st.expander("🔍 Ver datos de debug (para diagnóstico)", expanded=False):
+        st.write("**Datos financieros obtenidos:**")
+        st.json(datos_financieros)
 
 def obtener_datos_financieros_completos(id_miembro):
     """Obtiene todos los datos financieros de un miembro"""
@@ -310,17 +314,26 @@ def obtener_datos_financieros_completos(id_miembro):
         if conexion:
             cursor = conexion.cursor()
             
+            # DEBUG: Verificar que estamos buscando el miembro correcto
+            st.write(f"🔍 DEBUG: Buscando datos para id_miembro: {id_miembro}")
+            
             # 1. Obtener totales por tipo de aporte
             cursor.execute("""
                 SELECT 
                     tipo,
-                    COALESCE(SUM(monto), 0) as total
+                    COALESCE(SUM(monto), 0) as total,
+                    COUNT(*) as cantidad
                 FROM aporte 
                 WHERE id_miembro = %s
                 GROUP BY tipo
             """, (id_miembro,))
             
             resultados_aportes = cursor.fetchall()
+            
+            # DEBUG: Mostrar aportes encontrados
+            st.write(f"📊 DEBUG: Aportes encontrados: {len(resultados_aportes)}")
+            for ap in resultados_aportes:
+                st.write(f"  - {ap['tipo']}: ${ap['total']} ({ap['cantidad']} registros)")
             
             # Inicializar totales
             totales_aportes = {
@@ -343,26 +356,30 @@ def obtener_datos_financieros_completos(id_miembro):
                     p.id_prestamo,
                     p.monto_prestado,
                     p.fecha_vencimiento,
+                    p.estado,
                     COALESCE(SUM(pg.monto_capital), 0) as monto_pagado,
                     (p.monto_prestado - COALESCE(SUM(pg.monto_capital), 0)) as monto_restante
                 FROM prestamo p
                 LEFT JOIN pago pg ON p.id_prestamo = pg.id_prestamo
                 WHERE p.id_miembro = %s AND p.estado = 'aprobado'
-                GROUP BY p.id_prestamo, p.monto_prestado, p.fecha_vencimiento
+                GROUP BY p.id_prestamo, p.monto_prestado, p.fecha_vencimiento, p.estado
                 HAVING monto_restante > 0
             """, (id_miembro,))
             
             prestamos_pendientes = cursor.fetchall()
             total_prestamos_pendientes = sum(float(p['monto_restante']) for p in prestamos_pendientes)
             
-            # 3. Obtener multas pendientes
+            # DEBUG: Mostrar préstamos
+            st.write(f"💳 DEBUG: Préstamos pendientes: {len(prestamos_pendientes)}")
+            
+            # 3. Obtener multas pendientes (SIN fecha_creacion)
             cursor.execute("""
                 SELECT 
                     mt.id_multa,
                     mt.motivo,
                     mt.monto,
-                    mt.fecha_creacion,
-                    e.nombre_estado
+                    e.nombre_estado,
+                    mt.id_estado
                 FROM multa mt
                 JOIN estado e ON mt.id_estado = e.id_estado
                 WHERE mt.id_miembro = %s AND e.nombre_estado IN ('activo', 'mora')
@@ -370,6 +387,9 @@ def obtener_datos_financieros_completos(id_miembro):
             
             multas_pendientes = cursor.fetchall()
             total_multas_pendientes = sum(float(m['monto']) for m in multas_pendientes)
+            
+            # DEBUG: Mostrar multas
+            st.write(f"⚠️ DEBUG: Multas pendientes: {len(multas_pendientes)}")
             
             cursor.close()
             conexion.close()
@@ -393,6 +413,8 @@ def obtener_datos_financieros_completos(id_miembro):
             
     except Exception as e:
         st.error(f"❌ Error al obtener datos financieros: {e}")
+        import traceback
+        st.code(traceback.format_exc())
     
     # Retorno por defecto en caso de error
     return {
