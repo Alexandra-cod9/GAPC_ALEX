@@ -21,7 +21,7 @@ def obtener_conexion():
         return None
 
 def mostrar_modulo_miembros():
-    """Módulo de gestión de miembros"""
+    """Módulo de gestión de miembros - Versión simplificada"""
     
     # Header del módulo con botón de volver
     col1, col2 = st.columns([3, 1])
@@ -37,32 +37,31 @@ def mostrar_modulo_miembros():
     # Menú de opciones
     opcion = st.radio(
         "Selecciona una acción:",
-        ["📋 Registros de Miembros", "➕ Añadir Nuevo Miembro", "🔍 Buscar Miembro"],
+        ["📋 Lista de Miembros", "➕ Agregar Miembro", "🔍 Buscar Miembro"],
         horizontal=True
     )
     
     st.markdown("---")
     
-    if opcion == "📋 Registros de Miembros":
-        mostrar_registros_miembros()
-    elif opcion == "➕ Añadir Nuevo Miembro":
+    if opcion == "📋 Lista de Miembros":
+        mostrar_lista_miembros()
+    elif opcion == "➕ Agregar Miembro":
         mostrar_formulario_nuevo_miembro()
     elif opcion == "🔍 Buscar Miembro":
         mostrar_busqueda_miembro()
 
-def mostrar_registros_miembros():
-    """Muestra la lista de todos los miembros del grupo"""
-    st.subheader("📋 Lista de Miembros")
+def mostrar_lista_miembros():
+    """Muestra la lista simple de todos los miembros"""
+    st.subheader("📋 Lista de Miembros del Grupo")
     
     try:
         conexion = obtener_conexion()
         if conexion:
             cursor = conexion.cursor()
             
-            # Obtener id_grupo del usuario actual
             id_grupo = st.session_state.usuario.get('id_grupo', 1)
             
-            # Consulta para obtener miembros con información de préstamos y aportes
+            # Consulta simple sin cálculos financieros
             cursor.execute("""
                 SELECT 
                     m.id_miembro,
@@ -70,16 +69,19 @@ def mostrar_registros_miembros():
                     m.telefono,
                     m.dui,
                     m.correo,
-                    r.tipo_rol,
-                    COALESCE(SUM(p.monto_prestado), 0) as total_prestamos,
-                    COALESCE(SUM(a.monto), 0) as total_ahorro
+                    r.tipo_rol
                 FROM miembrogapc m
                 JOIN rol r ON m.id_rol = r.id_rol
-                LEFT JOIN prestamo p ON m.id_miembro = p.id_miembro AND p.estado = 'aprobado'
-                LEFT JOIN aporte a ON m.id_miembro = a.id_miembro
                 WHERE m.id_grupo = %s
-                GROUP BY m.id_miembro, m.nombre, m.telefono, m.dui, m.correo, r.tipo_rol
-                ORDER BY m.nombre
+                ORDER BY 
+                    CASE 
+                        WHEN r.tipo_rol = 'Presidente' THEN 1
+                        WHEN r.tipo_rol = 'Secretaria' THEN 2
+                        WHEN r.tipo_rol = 'Tesorera' THEN 3
+                        WHEN r.tipo_rol = 'Promotora' THEN 4
+                        ELSE 5
+                    END,
+                    m.nombre
             """, (id_grupo,))
             
             miembros = cursor.fetchall()
@@ -87,22 +89,24 @@ def mostrar_registros_miembros():
             conexion.close()
             
             if miembros:
-                # Mostrar estadísticas
+                # Mostrar estadísticas básicas
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
                     st.metric("Total Miembros", len(miembros))
                 with col2:
-                    st.metric("Socios", len([m for m in miembros if m['tipo_rol'] == 'socio']))
+                    directiva = len([m for m in miembros if m['tipo_rol'] in ['Presidente', 'Secretaria', 'Tesorera']])
+                    st.metric("Directiva", directiva)
                 with col3:
-                    st.metric("Directiva", len([m for m in miembros if m['tipo_rol'] in ['Presidente', 'Secretaria', 'Tesorera']]))
+                    socios = len([m for m in miembros if m['tipo_rol'] == 'socio'])
+                    st.metric("Socios", socios)
                 with col4:
-                    total_ahorro = sum(m['total_ahorro'] for m in miembros)
-                    st.metric("Ahorro Total", f"${total_ahorro:,.2f}")
+                    otros = len([m for m in miembros if m['tipo_rol'] in ['llave', 'Institucion', 'Promotora']])
+                    st.metric("Otros Roles", otros)
                 
                 st.markdown("---")
                 
-                # Mostrar tabla de miembros
-                for i, miembro in enumerate(miembros):
+                # Mostrar tabla de miembros simple
+                for miembro in miembros:
                     with st.expander(f"👤 {miembro['nombre']} - {miembro['tipo_rol']}", expanded=False):
                         col1, col2, col3 = st.columns([2, 1, 1])
                         
@@ -113,34 +117,48 @@ def mostrar_registros_miembros():
                                 st.write(f"**📧 Correo:** {miembro['correo']}")
                         
                         with col2:
-                            st.write(f"**💳 Préstamos:** ${miembro['total_prestamos']:,.2f}")
-                            st.write(f"**💰 Ahorro:** ${miembro['total_ahorro']:,.2f}")
+                            # Botones para ver información detallada en otros módulos
+                            if st.button("💰 Aportes", key=f"aportes_{miembro['id_miembro']}", use_container_width=True):
+                                st.session_state.miembro_detalle_id = miembro['id_miembro']
+                                st.session_state.modulo_actual = 'aportes'
+                                st.rerun()
+                            
+                            if st.button("💳 Préstamos", key=f"prestamos_{miembro['id_miembro']}", use_container_width=True):
+                                st.session_state.miembro_detalle_id = miembro['id_miembro']
+                                st.session_state.modulo_actual = 'prestamos'
+                                st.rerun()
                         
                         with col3:
+                            if st.button("⚠️ Multas", key=f"multas_{miembro['id_miembro']}", use_container_width=True):
+                                st.session_state.miembro_detalle_id = miembro['id_miembro']
+                                st.session_state.modulo_actual = 'multas'
+                                st.rerun()
+                            
+                            # Botones de acción
                             col_edit, col_del = st.columns(2)
                             with col_edit:
-                                if st.button("✏️ Editar", key=f"edit_{miembro['id_miembro']}"):
+                                if st.button("✏️", key=f"edit_{miembro['id_miembro']}"):
                                     st.session_state.editar_miembro_id = miembro['id_miembro']
                                     st.rerun()
                             with col_del:
-                                if st.button("🗑️ Eliminar", key=f"del_{miembro['id_miembro']}"):
+                                if st.button("🗑️", key=f"del_{miembro['id_miembro']}"):
                                     st.session_state.eliminar_miembro_id = miembro['id_miembro']
                                     st.rerun()
             else:
-                st.info("📝 No hay miembros registrados en este grupo.")
+                st.info("📝 No hay miembros registrados en este grupo. ¡Agrega el primero!")
                 
     except Exception as e:
         st.error(f"❌ Error al cargar miembros: {e}")
 
 def mostrar_formulario_nuevo_miembro():
     """Muestra el formulario para añadir nuevo miembro"""
-    st.subheader("➕ Añadir Nuevo Miembro")
+    st.subheader("➕ Agregar Nuevo Miembro")
     
     with st.form("form_nuevo_miembro"):
         col1, col2 = st.columns(2)
         
         with col1:
-            nombre = st.text_input("👤 Nombre Completo *", placeholder="Ej: Juan Pérez")
+            nombre = st.text_input("👤 Nombre Completo *", placeholder="Ej: Juan Pérez García")
             telefono = st.text_input("📞 Teléfono *", placeholder="Ej: 1234-5678")
             dui = st.text_input("🆔 DUI *", placeholder="Ej: 12345678-9")
         
@@ -177,7 +195,7 @@ def obtener_roles():
         conexion = obtener_conexion()
         if conexion:
             cursor = conexion.cursor()
-            cursor.execute("SELECT tipo_rol FROM rol")
+            cursor.execute("SELECT tipo_rol FROM rol ORDER BY tipo_rol")
             roles = [fila['tipo_rol'] for fila in cursor.fetchall()]
             cursor.close()
             conexion.close()
@@ -262,20 +280,15 @@ def buscar_miembros(termino):
                     m.telefono,
                     m.dui,
                     m.correo,
-                    r.tipo_rol,
-                    COALESCE(SUM(p.monto_prestado), 0) as total_prestamos,
-                    COALESCE(SUM(a.monto), 0) as total_ahorro
+                    r.tipo_rol
                 FROM miembrogapc m
                 JOIN rol r ON m.id_rol = r.id_rol
-                LEFT JOIN prestamo p ON m.id_miembro = p.id_miembro AND p.estado = 'aprobado'
-                LEFT JOIN aporte a ON m.id_miembro = a.id_miembro
                 WHERE m.id_grupo = %s AND (
                     m.nombre LIKE %s OR 
                     m.telefono LIKE %s OR 
                     m.dui LIKE %s OR
                     m.correo LIKE %s
                 )
-                GROUP BY m.id_miembro, m.nombre, m.telefono, m.dui, m.correo, r.tipo_rol
                 ORDER BY m.nombre
             """, (id_grupo, termino_like, termino_like, termino_like, termino_like))
             
@@ -297,17 +310,31 @@ def buscar_miembros(termino):
                                 st.write(f"**📧 Correo:** {miembro['correo']}")
                         
                         with col2:
-                            st.write(f"**💳 Préstamos:** ${miembro['total_prestamos']:,.2f}")
-                            st.write(f"**💰 Ahorro:** ${miembro['total_ahorro']:,.2f}")
+                            # Botones para ver información detallada
+                            if st.button("💰 Aportes", key=f"aportes_search_{miembro['id_miembro']}", use_container_width=True):
+                                st.session_state.miembro_detalle_id = miembro['id_miembro']
+                                st.session_state.modulo_actual = 'aportes'
+                                st.rerun()
+                            
+                            if st.button("💳 Préstamos", key=f"prestamos_search_{miembro['id_miembro']}", use_container_width=True):
+                                st.session_state.miembro_detalle_id = miembro['id_miembro']
+                                st.session_state.modulo_actual = 'prestamos'
+                                st.rerun()
                         
                         with col3:
+                            if st.button("⚠️ Multas", key=f"multas_search_{miembro['id_miembro']}", use_container_width=True):
+                                st.session_state.miembro_detalle_id = miembro['id_miembro']
+                                st.session_state.modulo_actual = 'multas'
+                                st.rerun()
+                            
+                            # Botones de acción
                             col_edit, col_del = st.columns(2)
                             with col_edit:
-                                if st.button("✏️ Editar", key=f"edit_search_{miembro['id_miembro']}"):
+                                if st.button("✏️", key=f"edit_search_{miembro['id_miembro']}"):
                                     st.session_state.editar_miembro_id = miembro['id_miembro']
                                     st.rerun()
                             with col_del:
-                                if st.button("🗑️ Eliminar", key=f"del_search_{miembro['id_miembro']}"):
+                                if st.button("🗑️", key=f"del_search_{miembro['id_miembro']}"):
                                     st.session_state.eliminar_miembro_id = miembro['id_miembro']
                                     st.rerun()
             else:
@@ -316,7 +343,7 @@ def buscar_miembros(termino):
     except Exception as e:
         st.error(f"❌ Error en la búsqueda: {e}")
 
-# Funciones para editar y eliminar (las implementaremos después)
+# Funciones para editar y eliminar (las implementaremos después si es necesario)
 def mostrar_formulario_edicion(miembro_id):
     """Muestra el formulario para editar un miembro"""
     st.info("🔧 Funcionalidad de edición en desarrollo...")
