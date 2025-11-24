@@ -183,10 +183,10 @@ def registrar_multa(miembro, motivo, monto, fecha, estado):
             }
             id_estado = estado_map.get(estado, 1)
             
-            # Insertar multa
+            # Insertar multa - usando fecha_multa en lugar de fecha_creacion
             cursor.execute("""
                 INSERT INTO multa (
-                    id_miembro, motivo, monto, id_estado, fecha_creacion
+                    id_miembro, motivo, monto, id_estado, fecha_multa
                 ) VALUES (%s, %s, %s, %s, %s)
             """, (
                 miembro['id_miembro'],
@@ -217,14 +217,14 @@ def mostrar_multas_activas():
             
             id_grupo = st.session_state.usuario.get('id_grupo', 1)
             
-            # Obtener multas activas con información de pagos
+            # Obtener multas activas con información de pagos - usando fecha_multa
             cursor.execute("""
                 SELECT 
                     mt.id_multa,
                     m.nombre as miembro,
                     mt.motivo,
                     mt.monto as monto_original,
-                    mt.fecha_creacion,
+                    mt.fecha_multa,
                     e.nombre_estado,
                     COALESCE(SUM(
                         CASE WHEN a.tipo = 'PagoMulta' THEN a.monto ELSE 0 END
@@ -237,9 +237,9 @@ def mostrar_multas_activas():
                 JOIN estado e ON mt.id_estado = e.id_estado
                 LEFT JOIN aporte a ON mt.id_miembro = a.id_miembro AND a.tipo = 'PagoMulta'
                 WHERE m.id_grupo = %s AND e.nombre_estado = 'activo'
-                GROUP BY mt.id_multa, m.nombre, mt.motivo, mt.monto, mt.fecha_creacion, e.nombre_estado
+                GROUP BY mt.id_multa, m.nombre, mt.motivo, mt.monto, mt.fecha_multa, e.nombre_estado
                 HAVING saldo_pendiente > 0
-                ORDER BY mt.fecha_creacion DESC
+                ORDER BY mt.fecha_multa DESC
             """, (id_grupo,))
             
             multas_activas = cursor.fetchall()
@@ -264,7 +264,7 @@ def mostrar_multas_activas():
                 
                 for multa in multas_activas:
                     # Calcular porcentaje pagado
-                    porcentaje_pagado = (multa['total_pagado'] / multa['monto_original']) * 100
+                    porcentaje_pagado = (multa['total_pagado'] / multa['monto_original']) * 100 if multa['monto_original'] > 0 else 0
                     
                     with st.expander(f"⚠️ {multa['miembro']} - ${multa['monto_original']:,.2f} - {multa['motivo'][:50]}...", expanded=False):
                         col1, col2 = st.columns(2)
@@ -272,7 +272,7 @@ def mostrar_multas_activas():
                         with col1:
                             st.write(f"**👤 Miembro:** {multa['miembro']}")
                             st.write(f"**📋 Motivo:** {multa['motivo']}")
-                            st.write(f"**📅 Fecha:** {multa['fecha_creacion']}")
+                            st.write(f"**📅 Fecha:** {multa['fecha_multa']}")
                             st.write(f"**💰 Monto Original:** ${multa['monto_original']:,.2f}")
                         
                         with col2:
@@ -372,14 +372,14 @@ def mostrar_multas_pagadas():
             
             id_grupo = st.session_state.usuario.get('id_grupo', 1)
             
-            # Obtener multas pagadas
+            # Obtener multas pagadas - usando fecha_multa
             cursor.execute("""
                 SELECT 
                     mt.id_multa,
                     m.nombre as miembro,
                     mt.motivo,
                     mt.monto,
-                    mt.fecha_creacion,
+                    mt.fecha_multa,
                     MAX(r.fecha) as fecha_ultimo_pago,
                     COALESCE(SUM(
                         CASE WHEN a.tipo = 'PagoMulta' THEN a.monto ELSE 0 END
@@ -388,8 +388,9 @@ def mostrar_multas_pagadas():
                 JOIN miembrogapc m ON mt.id_miembro = m.id_miembro
                 JOIN estado e ON mt.id_estado = e.id_estado
                 LEFT JOIN aporte a ON mt.id_miembro = a.id_miembro AND a.tipo = 'PagoMulta'
+                LEFT JOIN reunion r ON a.id_reunion = r.id_reunion
                 WHERE m.id_grupo = %s AND e.nombre_estado = 'pagado'
-                GROUP BY mt.id_multa, m.nombre, mt.motivo, mt.monto, mt.fecha_creacion
+                GROUP BY mt.id_multa, m.nombre, mt.motivo, mt.monto, mt.fecha_multa
                 ORDER BY fecha_ultimo_pago DESC
             """, (id_grupo,))
             
@@ -406,11 +407,14 @@ def mostrar_multas_pagadas():
                         with col1:
                             st.write(f"**👤 Miembro:** {multa['miembro']}")
                             st.write(f"**📋 Motivo:** {multa['motivo']}")
-                            st.write(f"**📅 Fecha Multa:** {multa['fecha_creacion']}")
+                            st.write(f"**📅 Fecha Multa:** {multa['fecha_multa']}")
                         with col2:
                             st.write(f"**💰 Monto:** ${multa['monto']:,.2f}")
                             st.write(f"**💵 Total Pagado:** ${multa['total_pagado']:,.2f}")
-                            st.write(f"**📅 Último Pago:** {multa['fecha_ultimo_pago']}")
+                            if multa['fecha_ultimo_pago']:
+                                st.write(f"**📅 Último Pago:** {multa['fecha_ultimo_pago']}")
+                            else:
+                                st.write(f"**📅 Último Pago:** No registrado")
             else:
                 st.info("📝 No hay multas pagadas registradas.")
                 
@@ -428,14 +432,14 @@ def mostrar_historial_completo():
             
             id_grupo = st.session_state.usuario.get('id_grupo', 1)
             
-            # Obtener todas las multas
+            # Obtener todas las multas - usando fecha_multa
             cursor.execute("""
                 SELECT 
                     mt.id_multa,
                     m.nombre as miembro,
                     mt.motivo,
                     mt.monto,
-                    mt.fecha_creacion,
+                    mt.fecha_multa,
                     e.nombre_estado as estado,
                     COALESCE(SUM(
                         CASE WHEN a.tipo = 'PagoMulta' THEN a.monto ELSE 0 END
@@ -448,8 +452,8 @@ def mostrar_historial_completo():
                 JOIN estado e ON mt.id_estado = e.id_estado
                 LEFT JOIN aporte a ON mt.id_miembro = a.id_miembro AND a.tipo = 'PagoMulta'
                 WHERE m.id_grupo = %s
-                GROUP BY mt.id_multa, m.nombre, mt.motivo, mt.monto, mt.fecha_creacion, e.nombre_estado
-                ORDER BY mt.fecha_creacion DESC
+                GROUP BY mt.id_multa, m.nombre, mt.motivo, mt.monto, mt.fecha_multa, e.nombre_estado
+                ORDER BY mt.fecha_multa DESC
             """, (id_grupo,))
             
             todas_multas = cursor.fetchall()
@@ -490,7 +494,7 @@ def mostrar_historial_completo():
                         with col1:
                             st.write(f"**👤 Miembro:** {multa['miembro']}")
                             st.write(f"**📋 Motivo:** {multa['motivo']}")
-                            st.write(f"**📅 Fecha:** {multa['fecha_creacion']}")
+                            st.write(f"**📅 Fecha:** {multa['fecha_multa']}")
                         with col2:
                             st.write(f"**💰 Monto:** ${multa['monto']:,.2f}")
                             st.write(f"**💵 Pagado:** ${multa['total_pagado']:,.2f}")
@@ -501,3 +505,4 @@ def mostrar_historial_completo():
                 
     except Exception as e:
         st.error(f"❌ Error al cargar historial completo: {e}")
+        
