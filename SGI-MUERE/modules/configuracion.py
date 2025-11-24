@@ -620,3 +620,4 @@ def mostrar_configuracion_avanzada():
         st.markdown("---")
         st.subheader("📋 Configuración Actual")
         st.json(st.session_state.config_avanzada)
+        
