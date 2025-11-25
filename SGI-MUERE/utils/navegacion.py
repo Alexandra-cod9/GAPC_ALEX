@@ -11,6 +11,16 @@ from modules import (
     configuracion
 )
 
+def es_promotora(usuario):
+    """Verifica si el usuario tiene rol de promotora"""
+    return usuario.get("rol", "").lower() == "promotora"
+
+def distritos_para_usuario(usuario, obtener_todos, obtener_por_id):
+    """Retorna los distritos según el rol del usuario"""
+    if es_promotora(usuario):
+        return obtener_por_id(usuario["distrito_id"])
+    return obtener_todos()
+
 def mostrar_modulo():
     """Muestra el módulo actual seleccionado"""
     modulo = st.session_state.modulo_actual
