@@ -20,6 +20,18 @@ def obtener_conexion():
         st.error(f"❌ Error de conexión: {e}")
         return None
 
+def obtener_distrito_por_id(cursor, id_distrito):
+    """Obtiene un distrito específico por ID"""
+    query = "SELECT * FROM distrito WHERE id_distrito = %s"
+    cursor.execute(query, (id_distrito,))
+    return cursor.fetchall()
+
+def obtener_todos_distritos(cursor):
+    """Obtiene todos los distritos"""
+    query = "SELECT * FROM distrito"
+    cursor.execute(query)
+    return cursor.fetchall()
+
 def mostrar_modulo_configuracion():
     """Módulo de configuración del sistema"""
     
@@ -620,4 +632,3 @@ def mostrar_configuracion_avanzada():
         st.markdown("---")
         st.subheader("📋 Configuración Actual")
         st.json(st.session_state.config_avanzada)
-        
