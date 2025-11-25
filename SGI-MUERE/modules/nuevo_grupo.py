@@ -213,68 +213,70 @@ def mostrar_formulario_nuevo_grupo():
                 use_container_width=True,
                 type="primary"
             )
+    
+    # Procesar el formulario FUERA del contexto del form
+    if submitted:
+        # Validaciones
+        errores = []
         
-        if submitted:
-            # Validaciones
-            errores = []
+        if not nombre_grupo:
+            errores.append("El nombre del grupo es obligatorio")
+        if not nombre_comunidad:
+            errores.append("El nombre de la comunidad es obligatorio")
+        if not nombre_presidente:
+            errores.append("El nombre del presidente es obligatorio")
+        if not dui_presidente:
+            errores.append("El DUI del presidente es obligatorio")
+        if not telefono_presidente:
+            errores.append("El teléfono del presidente es obligatorio")
+        if correo_presidente and not contrasena_presidente:
+            errores.append("Si proporciona correo, debe crear una contraseña")
+        if contrasena_presidente and len(contrasena_presidente) < 6:
+            errores.append("La contraseña debe tener al menos 6 caracteres")
+        
+        if errores:
+            for error in errores:
+                st.error(f"❌ {error}")
+        else:
+            # Crear el grupo completo
+            resultado = crear_grupo_completo(
+                distrito_promotora['id_distrito'],
+                nombre_grupo,
+                nombre_comunidad,
+                fecha_formacion,
+                frecuencia_reuniones,
+                tasa_interes_mensual,
+                metodo_reparto_utilidades,
+                meta_social,
+                texto_reglamento,
+                tipo_multa,
+                reglas_prestamo,
+                nombre_presidente,
+                dui_presidente,
+                telefono_presidente,
+                correo_presidente,
+                contrasena_presidente
+            )
             
-            if not nombre_grupo:
-                errores.append("El nombre del grupo es obligatorio")
-            if not nombre_comunidad:
-                errores.append("El nombre de la comunidad es obligatorio")
-            if not nombre_presidente:
-                errores.append("El nombre del presidente es obligatorio")
-            if not dui_presidente:
-                errores.append("El DUI del presidente es obligatorio")
-            if not telefono_presidente:
-                errores.append("El teléfono del presidente es obligatorio")
-            if correo_presidente and not contrasena_presidente:
-                errores.append("Si proporciona correo, debe crear una contraseña")
-            if contrasena_presidente and len(contrasena_presidente) < 6:
-                errores.append("La contraseña debe tener al menos 6 caracteres")
-            
-            if errores:
-                for error in errores:
-                    st.error(f"❌ {error}")
-            else:
-                # Crear el grupo completo
-                resultado = crear_grupo_completo(
-                    distrito_promotora['id_distrito'],
-                    nombre_grupo,
-                    nombre_comunidad,
-                    fecha_formacion,
-                    frecuencia_reuniones,
-                    tasa_interes_mensual,
-                    metodo_reparto_utilidades,
-                    meta_social,
-                    texto_reglamento,
-                    tipo_multa,
-                    reglas_prestamo,
-                    nombre_presidente,
-                    dui_presidente,
-                    telefono_presidente,
-                    correo_presidente,
-                    contrasena_presidente
-                )
+            if resultado['exito']:
+                st.success("🎉 ¡Grupo creado exitosamente!")
+                st.balloons()
+                st.info(f"""
+                **✅ Resumen:**
+                - **Grupo creado:** {nombre_grupo}
+                - **ID del Grupo:** {resultado['id_grupo']}
+                - **Presidente:** {nombre_presidente}
+                - **Ubicación:** {distrito_promotora['nombre_distrito']}
+                """)
                 
-                if resultado['exito']:
-                    st.success("🎉 ¡Grupo creado exitosamente!")
-                    st.balloons()
-                    st.info(f"""
-                    **✅ Resumen:**
-                    - **Grupo creado:** {nombre_grupo}
-                    - **ID del Grupo:** {resultado['id_grupo']}
-                    - **Presidente:** {nombre_presidente}
-                    - **Ubicación:** {distrito_promotora['nombre_distrito']}
-                    """)
-                    
-                    # Limpiar el flag y recargar
-                    st.session_state.mostrar_nuevo_grupo = False
-                    
-                    if st.button("⬅️ Volver al Dashboard"):
-                        st.rerun()
-                else:
-                    st.error(f"❌ Error al crear el grupo: {resultado['mensaje']}")
+                # Limpiar el flag
+                st.session_state.mostrar_nuevo_grupo = False
+                
+                # Botón para volver (AHORA FUERA DEL FORM)
+                if st.button("⬅️ Volver al Dashboard"):
+                    st.rerun()
+            else:
+                st.error(f"❌ Error al crear el grupo: {resultado['mensaje']}")
 
 def obtener_distrito_promotora_mejorado():
     """Obtiene el distrito asignado a la promotora con múltiples intentos"""
