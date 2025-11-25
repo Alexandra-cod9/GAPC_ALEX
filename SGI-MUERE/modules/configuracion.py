@@ -20,18 +20,6 @@ def obtener_conexion():
         st.error(f"❌ Error de conexión: {e}")
         return None
 
-def obtener_distrito_por_id(cursor, id_distrito):
-    """Obtiene un distrito específico por ID"""
-    query = "SELECT * FROM distrito WHERE id_distrito = %s"
-    cursor.execute(query, (id_distrito,))
-    return cursor.fetchall()
-
-def obtener_todos_distritos(cursor):
-    """Obtiene todos los distritos"""
-    query = "SELECT * FROM distrito"
-    cursor.execute(query)
-    return cursor.fetchall()
-
 def mostrar_modulo_configuracion():
     """Módulo de configuración del sistema"""
     
@@ -158,7 +146,7 @@ def obtener_informacion_grupo():
                     frecuencia_reuniones,
                     tasa_interes_mensual,
                     metodo_reparto_utilidades,
-                    meta_social
+                    COALESCE(meta_social, '') as meta_social
                 FROM grupo 
                 WHERE id_grupo = %s
             """, (id_grupo,))
@@ -175,7 +163,7 @@ def obtener_informacion_grupo():
                     'frecuencia_reuniones': grupo['frecuencia_reuniones'],
                     'tasa_interes_mensual': grupo['tasa_interes_mensual'],
                     'metodo_reparto_utilidades': grupo['metodo_reparto_utilidades'],
-                    'meta_social': grupo['meta_social'] if grupo['meta_social'] else ""
+                    'meta_social': grupo['meta_social']
                 }
     
     except Exception as e:
@@ -219,13 +207,11 @@ def guardar_informacion_grupo(nombre, comunidad, fecha, frecuencia, tasa_interes
                     WHERE id_grupo = %s
                 """, (nombre, comunidad, fecha, frecuencia, tasa_interes, metodo_reparto, meta_social, id_grupo))
             else:
-                # Insertar nuevo grupo (usando el id_grupo del usuario)
-                cursor.execute("""
-                    INSERT INTO grupo (
-                        id_grupo, nombre_grupo, nombre_comunidad, fecha_formacion,
-                        frecuencia_reuniones, tasa_interes_mensual, metodo_reparto_utilidades, meta_social
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                """, (id_grupo, nombre, comunidad, fecha, frecuencia, tasa_interes, metodo_reparto, meta_social))
+                # Insertar nuevo grupo - CORREGIDO: necesita id_distrito e id_reglamento
+                st.warning("⚠️ Para crear un nuevo grupo, primero debes configurar la ubicación y el reglamento")
+                cursor.close()
+                conexion.close()
+                return
             
             conexion.commit()
             cursor.close()
@@ -250,6 +236,10 @@ def mostrar_configuracion_ubicacion():
         # Obtener departamentos
         departamentos = obtener_departamentos()
         
+        if not departamentos:
+            st.error("❌ No se pudieron cargar los departamentos")
+            return
+        
         col1, col2, col3 = st.columns(3)
         
         with col1:
@@ -262,32 +252,46 @@ def mostrar_configuracion_ubicacion():
         
         with col2:
             # Obtener municipios según departamento seleccionado
-            id_departamento_seleccionado = next(d['id_departamento'] for d in departamentos if d['nombre_departamento'] == departamento_seleccionado)
-            municipios = obtener_municipios(id_departamento_seleccionado)
+            id_departamento_seleccionado = next((d['id_departamento'] for d in departamentos if d['nombre_departamento'] == departamento_seleccionado), None)
+            municipios = obtener_municipios(id_departamento_seleccionado) if id_departamento_seleccionado else []
             
-            municipio_seleccionado = st.selectbox(
-                "🏘️ Municipio:",
-                options=[m['nombre_municipio'] for m in municipios],
-                index=obtener_indice_municipio(municipios, ubicacion_actual['id_municipio']),
-                help="Selecciona el municipio"
-            )
+            if municipios:
+                municipio_seleccionado = st.selectbox(
+                    "🏘️ Municipio:",
+                    options=[m['nombre_municipio'] for m in municipios],
+                    index=obtener_indice_municipio(municipios, ubicacion_actual['id_municipio']),
+                    help="Selecciona el municipio"
+                )
+            else:
+                st.warning("No hay municipios disponibles")
+                municipio_seleccionado = None
         
         with col3:
             # Obtener distritos según municipio seleccionado
-            id_municipio_seleccionado = next(m['id_municipio'] for m in municipios if m['nombre_municipio'] == municipio_seleccionado)
-            distritos = obtener_distritos(id_municipio_seleccionado)
-            
-            distrito_seleccionado = st.selectbox(
-                "🗺️ Distrito:",
-                options=[d['nombre_distrito'] for d in distritos],
-                index=obtener_indice_distrito(distritos, ubicacion_actual['id_distrito']),
-                help="Selecciona el distrito"
-            )
+            if municipio_seleccionado and municipios:
+                id_municipio_seleccionado = next((m['id_municipio'] for m in municipios if m['nombre_municipio'] == municipio_seleccionado), None)
+                distritos = obtener_distritos(id_municipio_seleccionado) if id_municipio_seleccionado else []
+                
+                if distritos:
+                    distrito_seleccionado = st.selectbox(
+                        "🗺️ Distrito:",
+                        options=[d['nombre_distrito'] for d in distritos],
+                        index=obtener_indice_distrito(distritos, ubicacion_actual['id_distrito']),
+                        help="Selecciona el distrito"
+                    )
+                else:
+                    st.warning("No hay distritos disponibles")
+                    distrito_seleccionado = None
+            else:
+                distrito_seleccionado = None
         
         if st.form_submit_button("💾 Guardar Ubicación", use_container_width=True):
-            id_distrito_seleccionado = next(d['id_distrito'] for d in distritos if d['nombre_distrito'] == distrito_seleccionado)
-            guardar_ubicacion_grupo(id_distrito_seleccionado)
-            st.success("🎉 ¡Ubicación guardada exitosamente!")
+            if distrito_seleccionado and distritos:
+                id_distrito_seleccionado = next(d['id_distrito'] for d in distritos if d['nombre_distrito'] == distrito_seleccionado)
+                guardar_ubicacion_grupo(id_distrito_seleccionado)
+                st.success("🎉 ¡Ubicación guardada exitosamente!")
+            else:
+                st.error("❌ Debes seleccionar un distrito válido")
 
 def obtener_ubicacion_actual():
     """Obtiene la ubicación actual del grupo"""
@@ -328,6 +332,9 @@ def obtener_ubicacion_actual():
                         'id_municipio': ubicacion['id_municipio'],
                         'id_departamento': ubicacion['id_departamento']
                     }
+            
+            cursor.close()
+            conexion.close()
     
     except Exception as e:
         st.error(f"❌ Error al obtener ubicación: {e}")
@@ -403,7 +410,7 @@ def obtener_indice_departamento(departamentos, id_departamento):
 
 def obtener_indice_municipio(municipios, id_municipio):
     """Obtiene el índice del municipio en la lista"""
-    if not id_municipio:
+    if not id_municipio or not municipios:
         return 0
     for i, mun in enumerate(municipios):
         if mun['id_municipio'] == id_municipio:
@@ -412,7 +419,7 @@ def obtener_indice_municipio(municipios, id_municipio):
 
 def obtener_indice_distrito(distritos, id_distrito):
     """Obtiene el índice del distrito en la lista"""
-    if not id_distrito:
+    if not id_distrito or not distritos:
         return 0
     for i, dist in enumerate(distritos):
         if dist['id_distrito'] == id_distrito:
@@ -488,29 +495,40 @@ def mostrar_configuracion_reglamento():
             st.success("🎉 ¡Reglamento guardado exitosamente!")
 
 def obtener_reglamento_actual():
-    """Obtiene el reglamento actual"""
+    """Obtiene el reglamento actual del grupo"""
     try:
         conexion = obtener_conexion()
         if conexion:
             cursor = conexion.cursor()
             
-            # Obtener el primer reglamento (podemos asociarlo al grupo después)
-            cursor.execute("""
-                SELECT texto_reglamento, tipo_multa, reglas_prestamo 
-                FROM reglamento 
-                WHERE id_reglamento = %s
-            """, (1,))  # Asumiendo que hay un reglamento base
+            # Primero obtener el id_reglamento del grupo
+            id_grupo = st.session_state.usuario.get('id_grupo', 1)
+            cursor.execute("SELECT id_reglamento FROM grupo WHERE id_grupo = %s", (id_grupo,))
+            grupo = cursor.fetchone()
             
-            reglamento = cursor.fetchone()
+            if grupo and grupo['id_reglamento']:
+                cursor.execute("""
+                    SELECT 
+                        COALESCE(texto_reglamento, '') as texto_reglamento,
+                        COALESCE(tipo_multa, '') as tipo_multa,
+                        COALESCE(reglas_prestamo, '') as reglas_prestamo
+                    FROM reglamento 
+                    WHERE id_reglamento = %s
+                """, (grupo['id_reglamento'],))
+                
+                reglamento = cursor.fetchone()
+                cursor.close()
+                conexion.close()
+                
+                if reglamento:
+                    return {
+                        'texto_reglamento': reglamento['texto_reglamento'],
+                        'tipo_multa': reglamento['tipo_multa'],
+                        'reglas_prestamo': reglamento['reglas_prestamo']
+                    }
+            
             cursor.close()
             conexion.close()
-            
-            if reglamento:
-                return {
-                    'texto_reglamento': reglamento['texto_reglamento'] if reglamento['texto_reglamento'] else "",
-                    'tipo_multa': reglamento['tipo_multa'] if reglamento['tipo_multa'] else "",
-                    'reglas_prestamo': reglamento['reglas_prestamo'] if reglamento['reglas_prestamo'] else ""
-                }
     
     except Exception as e:
         st.error(f"❌ Error al obtener reglamento: {e}")
@@ -528,11 +546,13 @@ def guardar_reglamento(texto_reglamento, tipo_multa, reglas_prestamo):
         if conexion:
             cursor = conexion.cursor()
             
-            # Verificar si existe el reglamento
-            cursor.execute("SELECT id_reglamento FROM reglamento WHERE id_reglamento = %s", (1,))
-            reglamento_existente = cursor.fetchone()
+            id_grupo = st.session_state.usuario.get('id_grupo', 1)
             
-            if reglamento_existente:
+            # Obtener el id_reglamento del grupo
+            cursor.execute("SELECT id_reglamento FROM grupo WHERE id_grupo = %s", (id_grupo,))
+            grupo = cursor.fetchone()
+            
+            if grupo and grupo['id_reglamento']:
                 # Actualizar reglamento existente
                 cursor.execute("""
                     UPDATE reglamento SET
@@ -540,22 +560,23 @@ def guardar_reglamento(texto_reglamento, tipo_multa, reglas_prestamo):
                         tipo_multa = %s,
                         reglas_prestamo = %s
                     WHERE id_reglamento = %s
-                """, (texto_reglamento, tipo_multa, reglas_prestamo, 1))
+                """, (texto_reglamento, tipo_multa, reglas_prestamo, grupo['id_reglamento']))
             else:
-                # Insertar nuevo reglamento
+                # Crear nuevo reglamento y asociarlo al grupo
                 cursor.execute("""
-                    INSERT INTO reglamento (
-                        texto_reglamento, tipo_multa, reglas_prestamo
-                    ) VALUES (%s, %s, %s)
+                    INSERT INTO reglamento (texto_reglamento, tipo_multa, reglas_prestamo) 
+                    VALUES (%s, %s, %s)
                 """, (texto_reglamento, tipo_multa, reglas_prestamo))
-            
-            # Asociar reglamento al grupo
-            id_grupo = st.session_state.usuario.get('id_grupo', 1)
-            cursor.execute("""
-                UPDATE grupo 
-                SET id_reglamento = %s 
-                WHERE id_grupo = %s
-            """, (1, id_grupo))
+                
+                # Obtener el ID del reglamento recién creado
+                id_reglamento = cursor.lastrowid
+                
+                # Asociar reglamento al grupo
+                cursor.execute("""
+                    UPDATE grupo 
+                    SET id_reglamento = %s 
+                    WHERE id_grupo = %s
+                """, (id_reglamento, id_grupo))
             
             conexion.commit()
             cursor.close()
