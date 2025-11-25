@@ -1,7 +1,8 @@
 import streamlit as st
 from datetime import datetime
-from utils.roles import es_promotora  # ✅ Importar desde roles en lugar de navegacion
+from utils.roles import es_promotora
 from modules.configuracion import obtener_conexion
+from modules import nuevo_grupo  # ✅ Importar el nuevo módulo
 
 def obtener_distrito_promotora(usuario):
     """Obtiene el distrito asignado a la promotora a través de su grupo"""
@@ -10,7 +11,6 @@ def obtener_distrito_promotora(usuario):
         if conexion:
             cursor = conexion.cursor()
             
-            # Obtener el distrito a través del grupo de la promotora
             cursor.execute("""
                 SELECT 
                     d.id_distrito,
@@ -51,7 +51,6 @@ def mostrar_dashboard_principal():
         st.write("**🔐 Modo Real**" if 'correo' in usuario else "**🧪 Modo Prueba**")
         st.markdown("---")
         
-        # Información específica para promotoras
         if es_promotora(usuario):
             st.markdown("### 👩‍💼 Panel Promotora")
             distrito = obtener_distrito_promotora(usuario)
@@ -95,7 +94,8 @@ def mostrar_dashboard_principal():
         
         with col1:
             if st.button("➕ Crear Nuevo Grupo", use_container_width=True, type="primary"):
-                st.info("🚧 Funcionalidad en desarrollo: Crear nuevo grupo")
+                st.session_state.mostrar_nuevo_grupo = True
+                st.rerun()
         
         with col2:
             if st.button("📊 Reporte por Grupo", use_container_width=True, type="primary"):
@@ -104,6 +104,17 @@ def mostrar_dashboard_principal():
         with col3:
             if st.button("🗺️ Ver Grupos del Distrito", use_container_width=True, type="primary"):
                 mostrar_grupos_distrito(usuario)
+    
+    # Mostrar formulario de nuevo grupo si se activó
+    if hasattr(st.session_state, 'mostrar_nuevo_grupo') and st.session_state.mostrar_nuevo_grupo:
+        st.markdown("---")
+        nuevo_grupo.mostrar_formulario_nuevo_grupo()
+        
+        if st.button("❌ Cancelar", use_container_width=True):
+            st.session_state.mostrar_nuevo_grupo = False
+            st.rerun()
+        
+        return  # Detener el resto del dashboard
     
     # ----------------- MÓDULOS -------------------
     st.markdown("---")
@@ -159,7 +170,6 @@ def mostrar_grupos_distrito(usuario):
         if conexion:
             cursor = conexion.cursor()
             
-            # Obtener el distrito de la promotora
             cursor.execute("""
                 SELECT g.id_distrito
                 FROM miembrogapc mg
@@ -172,7 +182,6 @@ def mostrar_grupos_distrito(usuario):
             if resultado:
                 id_distrito = resultado['id_distrito']
                 
-                # Obtener todos los grupos del distrito
                 cursor.execute("""
                     SELECT 
                         g.id_grupo,
