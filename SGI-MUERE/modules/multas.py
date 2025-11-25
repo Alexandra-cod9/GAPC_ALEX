@@ -64,14 +64,14 @@ def mostrar_todas_multas():
             
             id_grupo = st.session_state.usuario.get('id_grupo', 1)
             
-            # Obtener todas las multas del grupo (CORREGIDO según esquema de BD)
+            # Obtener todas las multas del grupo (CONSULTA CORREGIDA)
             cursor.execute("""
                 SELECT 
                     m.id_multa,
                     mb.nombre as miembro,
                     m.motivo,
                     m.monto,
-                    m.fecha_multa,
+                    m.fecha_registro as fecha_multa,
                     m.fecha_vencimiento,
                     e.nombre_estado as estado,
                     m.descripcion,
@@ -365,10 +365,10 @@ def guardar_multa(miembro, motivo, monto, fecha_multa, fecha_vencimiento, descri
             if estado_activo:
                 id_estado_activo = estado_activo['id_estado']
                 
-                # Insertar multa (CORREGIDO según esquema de BD)
+                # Insertar multa (CONSULTA CORREGIDA - usando fecha_registro)
                 cursor.execute("""
                     INSERT INTO multa (
-                        id_miembro, motivo, monto, fecha_multa, 
+                        id_miembro, motivo, monto, fecha_registro, 
                         fecha_vencimiento, descripcion, id_estado
                     ) VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """, (
@@ -415,14 +415,14 @@ def mostrar_multas_pendientes():
             
             id_grupo = st.session_state.usuario.get('id_grupo', 1)
             
-            # Obtener multas pendientes (CORREGIDO según esquema de BD)
+            # Obtener multas pendientes (CONSULTA CORREGIDA)
             cursor.execute("""
                 SELECT 
                     m.id_multa,
                     mb.nombre as miembro,
                     m.motivo,
                     m.monto,
-                    m.fecha_multa,
+                    m.fecha_registro as fecha_multa,
                     m.fecha_vencimiento,
                     m.descripcion,
                     DATEDIFF(m.fecha_vencimiento, CURDATE()) as dias_restantes,
@@ -508,14 +508,14 @@ def mostrar_multas_pagadas():
             
             id_grupo = st.session_state.usuario.get('id_grupo', 1)
             
-            # Obtener multas pagadas (CORREGIDO según esquema de BD)
+            # Obtener multas pagadas (CONSULTA CORREGIDA)
             cursor.execute("""
                 SELECT 
                     m.id_multa,
                     mb.nombre as miembro,
                     m.motivo,
                     m.monto,
-                    m.fecha_multa,
+                    m.fecha_registro as fecha_multa,
                     m.fecha_vencimiento,
                     m.descripcion
                 FROM multa m
@@ -569,7 +569,7 @@ def marcar_multa_pagada(id_multa):
             if estado_pagado:
                 id_estado_pagado = estado_pagado['id_estado']
                 
-                # Actualizar multa a estado 'pagado' (CORREGIDO según esquema de BD)
+                # Actualizar multa a estado 'pagado'
                 cursor.execute("""
                     UPDATE multa 
                     SET id_estado = %s
