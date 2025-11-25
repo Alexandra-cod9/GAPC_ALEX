@@ -147,7 +147,7 @@ def generar_reporte_mensual(mes_nombre, año):
                 FROM multa m
                 JOIN miembrogapc mb ON m.id_miembro = mb.id_miembro
                 JOIN estado e ON m.id_estado = e.id_estado
-                WHERE mb.id_grupo = %s AND m.fecha_multa BETWEEN %s AND %s
+                WHERE mb.id_grupo = %s AND m.fecha_registro BETWEEN %s AND %s
             """, (id_grupo, fecha_inicio, fecha_fin))
             
             total_multas_result = cursor.fetchone()
@@ -249,11 +249,11 @@ def generar_reporte_mensual(mes_nombre, año):
             # MULTAS del mes
             st.markdown("#### ⚖️ Multas Aplicadas")
             cursor.execute("""
-                SELECT m.motivo, m.monto, m.fecha_multa, mb.nombre, e.nombre_estado
+                SELECT m.motivo, m.monto, m.fecha_registro, mb.nombre, e.nombre_estado
                 FROM multa m
                 JOIN miembrogapc mb ON m.id_miembro = mb.id_miembro
                 JOIN estado e ON m.id_estado = e.id_estado
-                WHERE mb.id_grupo = %s AND m.fecha_multa BETWEEN %s AND %s
+                WHERE mb.id_grupo = %s AND m.fecha_registro BETWEEN %s AND %s
                 ORDER BY m.monto DESC
             """, (id_grupo, fecha_inicio, fecha_fin))
             
@@ -346,3 +346,4 @@ def obtener_conexion():
     except Exception as e:
         st.error(f"❌ Error de conexión: {e}")
         return None
+
