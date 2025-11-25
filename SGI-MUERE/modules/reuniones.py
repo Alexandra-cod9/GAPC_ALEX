@@ -636,24 +636,43 @@ def guardar_reunion_completa(fecha, hora, asistencias, aportes, prestamos, multa
                 """, (id_reunion, id_miembro, 'presente' if asistio else 'ausente', multa_aplicada))
             
             # 3. Guardar aportes
-            for aporte in aportes:
-                cursor.execute("""
-                    INSERT INTO aporte (id_reunion, id_miembro, monto, tipo)
-                    VALUES (%s, %s, %s, %s)
-                """, (id_reunion, aporte['id_miembro'], aporte['monto'], aporte['tipo']))
+for aporte in aportes:
+    cursor.execute("""
+        INSERT INTO aporte (id_reunion, id_miembro, monto, tipo)
+        VALUES (%s, %s, %s, %s)
+    """, (id_reunion, aporte['id_miembro'], aporte['monto'], aporte['tipo']))
+
+    # Actualizar saldo_actual (suma)
+    cursor.execute("""
+        UPDATE miembrogapc
+        SET saldo_actual = saldo_actual + %s
+        WHERE id_miembro = %s
+    """, (aporte['monto'], aporte['id_miembro']))
+
             
             # 4. Guardar préstamos
-            for prestamo in prestamos:
-                cursor.execute("""
-                    INSERT INTO prestamo (id_miembro, id_reunion, monto_prestado, proposito, fecha_vencimiento, plazo_meses, estado)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                """,cursor.execute("""
-    UPDATE miembrogapc
-    SET saldo_actual = saldo_actual - %s
-    WHERE id_miembro = %s
-""", (prestamo['monto'], prestamo['id_miembro']))
-  (prestamo['id_miembro'], id_reunion, prestamo['monto'], prestamo['proposito'], 
-                      prestamo['fecha_vencimiento'], prestamo['plazo_meses'], 'aprobado'))
+for prestamo in prestamos:
+    # Insertar préstamo
+    cursor.execute("""
+        INSERT INTO prestamo (id_miembro, id_reunion, monto_prestado, proposito, fecha_vencimiento, plazo_meses, estado)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+    """, (
+        prestamo['id_miembro'], 
+        id_reunion, 
+        prestamo['monto'], 
+        prestamo['proposito'],
+        prestamo['fecha_vencimiento'], 
+        prestamo['plazo_meses'], 
+        'aprobado'
+    ))
+
+    # Actualizar saldo_actual (resta préstamo)
+    cursor.execute("""
+        UPDATE miembrogapc
+        SET saldo_actual = saldo_actual - %s
+        WHERE id_miembro = %s
+    """, (prestamo['monto'], prestamo['id_miembro']))
+
             
             # 5. Guardar multas - SOLO LAS COLUMNAS EXISTENTES
             for multa in multas:
@@ -663,18 +682,23 @@ def guardar_reunion_completa(fecha, hora, asistencias, aportes, prestamos, multa
                 """, (multa['id_miembro'], multa['motivo'], multa['monto']))
             # fecha_registro se llena automáticamente con curdate()
             
-            # 6. Guardar pagos
-            for pago in pagos:
-                tipo_aporte = 'PagoPrestamo' if pago['tipo'] == 'Préstamo' else 'PagoMulta'
-                cursor.execute("""
-                    INSERT INTO aporte (id_reunion, id_miembro, monto, tipo)
-                    VALUES (%s, %s, %s, %s)
-                """, cursor.execute("""
-    UPDATE miembrogapc
-    SET saldo_actual = saldo_actual + %s
-    WHERE id_miembro = %s
-""", (aporte['monto'], aporte['id_miembro']))
- (id_reunion, pago['id_miembro'], pago['monto'], tipo_aporte))
+           # 6. Guardar pagos
+for pago in pagos:
+    tipo_aporte = 'PagoPrestamo' if pago['tipo'] == 'Préstamo' else 'PagoMulta'
+
+    # Insertar pago como aporte
+    cursor.execute("""
+        INSERT INTO aporte (id_reunion, id_miembro, monto, tipo)
+        VALUES (%s, %s, %s, %s)
+    """, (id_reunion, pago['id_miembro'], pago['monto'], tipo_aporte))
+
+    # Actualizar saldo_actual (resta pago)
+    cursor.execute("""
+        UPDATE miembrogapc
+        SET saldo_actual = saldo_actual - %s
+        WHERE id_miembro = %s
+    """, (pago['monto'], pago['id_miembro']))
+
             
             conexion.commit()
             cursor.close()
@@ -733,6 +757,7 @@ def mostrar_historial_reuniones():
                 
     except Exception as e:
         st.error(f"❌ Error al cargar historial: {e}")
+
 
 
 
