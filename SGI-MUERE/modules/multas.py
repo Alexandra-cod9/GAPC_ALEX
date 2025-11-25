@@ -64,20 +64,18 @@ def mostrar_todas_multas():
             
             id_grupo = st.session_state.usuario.get('id_grupo', 1)
             
-            # Obtener todas las multas del grupo (SIMPLIFICADO - sin fechas de vencimiento)
+            # Obtener todas las multas del grupo (ACTUALIZADO - sin estado)
             cursor.execute("""
                 SELECT 
                     m.id_multa,
                     mb.nombre as miembro,
                     m.motivo,
                     m.monto,
-                    m.fecha_registro,
-                    e.nombre_estado as estado
+                    m.fecha_registro
                 FROM multa m
                 JOIN miembrogapc mb ON m.id_miembro = mb.id_miembro
-                JOIN estado e ON m.id_estado = e.id_estado
                 WHERE mb.id_grupo = %s
-                ORDER BY e.nombre_estado, m.fecha_registro DESC
+                ORDER BY m.fecha_registro DESC
             """, (id_grupo,))
             
             multas = cursor.fetchall()
@@ -88,66 +86,58 @@ def mostrar_todas_multas():
                 # Filtros
                 col1, col2 = st.columns(2)
                 with col1:
-                    estados = ["Todos"] + list(set(m['estado'] for m in multas))
-                    estado_filtro = st.selectbox("🔍 Filtrar por estado:", estados)
-                
-                with col2:
                     miembros = ["Todos"] + list(set(m['miembro'] for m in multas))
                     miembro_filtro = st.selectbox("👤 Filtrar por miembro:", miembros)
                 
+                with col2:
+                    # Filtro por rango de fechas
+                    fecha_min = min(m['fecha_registro'] for m in multas)
+                    fecha_max = max(m['fecha_registro'] for m in multas)
+                    fecha_filtro = st.date_input(
+                        "📅 Filtrar por fecha:",
+                        value=(fecha_min, fecha_max),
+                        min_value=fecha_min,
+                        max_value=fecha_max
+                    )
+                
                 # Aplicar filtros
                 multas_filtradas = multas
-                if estado_filtro != "Todos":
-                    multas_filtradas = [m for m in multas_filtradas if m['estado'] == estado_filtro]
                 if miembro_filtro != "Todos":
                     multas_filtradas = [m for m in multas_filtradas if m['miembro'] == miembro_filtro]
                 
+                if isinstance(fecha_filtro, tuple) and len(fecha_filtro) == 2:
+                    fecha_inicio, fecha_fin = fecha_filtro
+                    multas_filtradas = [m for m in multas_filtradas if fecha_inicio <= m['fecha_registro'] <= fecha_fin]
+                
                 # Estadísticas
                 total_multas = len(multas_filtradas)
-                total_pendiente = sum(m['monto'] for m in multas_filtradas if m['estado'] != 'pagado')
-                total_pagado = sum(m['monto'] for m in multas_filtradas if m['estado'] == 'pagado')
-                multas_pendientes = len([m for m in multas_filtradas if m['estado'] != 'pagado'])
+                total_monto = sum(m['monto'] for m in multas_filtradas)
                 
-                col1, col2, col3, col4 = st.columns(4)
+                col1, col2 = st.columns(2)
                 with col1:
                     st.metric("📊 Total Multas", total_multas)
                 with col2:
-                    st.metric("💰 Total Pendiente", f"${total_pendiente:,.2f}")
-                with col3:
-                    st.metric("✅ Total Pagado", f"${total_pagado:,.2f}")
-                with col4:
-                    st.metric("⏳ Pendientes", multas_pendientes)
+                    st.metric("💰 Monto Total", f"${total_monto:,.2f}")
                 
                 st.markdown("---")
                 
                 # Mostrar multas
                 for multa in multas_filtradas:
-                    # Determinar color según estado
-                    if multa['estado'] == 'pagado':
-                        color = "✅"
-                        situacion_texto = "PAGADA"
-                    else:
-                        color = "🟡"
-                        situacion_texto = "PENDIENTE"
-                    
-                    with st.expander(f"{color} #{multa['id_multa']} - {multa['miembro']} - ${multa['monto']:,.2f} - {multa['estado']}", expanded=False):
+                    with st.expander(f"⚖️ #{multa['id_multa']} - {multa['miembro']} - ${multa['monto']:,.2f}", expanded=False):
                         col1, col2 = st.columns(2)
                         
                         with col1:
                             st.write(f"**👤 Miembro:** {multa['miembro']}")
                             st.write(f"**💰 Monto:** ${multa['monto']:,.2f}")
-                            st.write(f"**📅 Fecha Registro:** {multa['fecha_registro']}")
                         
                         with col2:
                             st.write(f"**📋 Motivo:** {multa['motivo']}")
-                            st.write(f"**🔒 Estado:** {multa['estado']}")
-                            st.write(f"**📊 Situación:** {situacion_texto}")
+                            st.write(f"**📅 Fecha Registro:** {multa['fecha_registro']}")
                             
-                            # Botón para marcar como pagada
-                            if multa['estado'] != 'pagado':
-                                if st.button("✅ Marcar como Pagada", key=f"pagar_{multa['id_multa']}"):
-                                    marcar_multa_pagada(multa['id_multa'])
-                                    st.rerun()
+                            # Botón para eliminar multa
+                            if st.button("🗑️ Eliminar Multa", key=f"eliminar_{multa['id_multa']}"):
+                                eliminar_multa(multa['id_multa'])
+                                st.rerun()
             else:
                 st.info("📝 No hay multas registradas en este grupo.")
                 
@@ -161,7 +151,7 @@ def mostrar_nueva_multa():
     st.info("""
     **💡 Información:**
     Al registrar una multa aquí, se afecta automáticamente el saldo del miembro:
-    - Se crea la multa con estado 'activo'
+    - Se crea la multa en el sistema
     - El miembro deberá pagar la multa
     - La multa afecta el estado financiero del miembro
     """)
@@ -181,7 +171,7 @@ def mostrar_nueva_multa():
             with col1:
                 st.info(f"**👤 Miembro:** {miembro_seleccionado['nombre']}")
             with col2:
-                st.info(f"**📧 Teléfono:** {miembro_seleccionado['telefono']}")
+                st.info(f"📧 Teléfono: {miembro_seleccionado['telefono']}")
             
             # Datos de la multa
             st.subheader("📝 Datos de la Multa")
@@ -228,10 +218,9 @@ def mostrar_nueva_multa():
                 - **Motivo:** {motivo_final}
                 - **Monto:** ${monto_multa:,.2f}
                 - **Fecha registro:** Hoy
-                - **Estado:** Activo
                 """)
         
-        # ✅ BOTÓN DE ENVÍO - DEBE ESTAR DIRECTAMENTE DENTRO DEL FORM, SIN CONDICIONES
+        # ✅ BOTÓN DE ENVÍO
         submitted = st.form_submit_button(
             "⚖️ Registrar Multa", 
             use_container_width=True,
@@ -293,59 +282,48 @@ def buscar_miembro_multa():
     return None
 
 def guardar_multa(miembro, motivo, monto):
-    """Guarda una nueva multa en la base de datos"""
+    """Guarda una nueva multa en la base de datos (ACTUALIZADO - sin estado)"""
     try:
         conexion = obtener_conexion()
         if conexion:
             cursor = conexion.cursor()
             
-            # Obtener el id_estado para 'activo'
-            cursor.execute("SELECT id_estado FROM estado WHERE nombre_estado = 'activo'")
-            estado_activo = cursor.fetchone()
+            # Insertar multa (SOLO CAMPOS EXISTENTES - sin estado)
+            cursor.execute("""
+                INSERT INTO multa (
+                    id_miembro, motivo, monto
+                ) VALUES (%s, %s, %s)
+            """, (
+                miembro['id_miembro'],
+                motivo,
+                monto
+            ))
             
-            if estado_activo:
-                id_estado_activo = estado_activo['id_estado']
-                
-                # Insertar multa (SOLO CAMPOS EXISTENTES)
-                cursor.execute("""
-                    INSERT INTO multa (
-                        id_miembro, motivo, monto, id_estado
-                    ) VALUES (%s, %s, %s, %s)
-                """, (
-                    miembro['id_miembro'],
-                    motivo,
-                    monto,
-                    id_estado_activo
-                ))
-                
-                conexion.commit()
-                cursor.close()
-                conexion.close()
-                
-                st.success("🎉 ¡Multa registrada exitosamente!")
-                st.balloons()
-                
-                # Mostrar resumen
-                st.info(f"""
-                **📋 Resumen de la Multa:**
-                - **Miembro:** {miembro['nombre']}
-                - **Motivo:** {motivo}
-                - **Monto:** ${monto:,.2f}
-                - **Fecha Registro:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-                - **Estado:** Activo
-                """)
-                
-                # Limpiar el formulario
-                st.rerun()
-            else:
-                st.error("❌ No se pudo encontrar el estado 'activo' en la base de datos")
+            conexion.commit()
+            cursor.close()
+            conexion.close()
+            
+            st.success("🎉 ¡Multa registrada exitosamente!")
+            st.balloons()
+            
+            # Mostrar resumen
+            st.info(f"""
+            **📋 Resumen de la Multa:**
+            - **Miembro:** {miembro['nombre']}
+            - **Motivo:** {motivo}
+            - **Monto:** ${monto:,.2f}
+            - **Fecha Registro:** {datetime.now().strftime('%Y-%m-%d')}
+            """)
+            
+            # Limpiar el formulario
+            st.rerun()
             
     except Exception as e:
         st.error(f"❌ Error al registrar multa: {e}")
 
 def mostrar_multas_pendientes():
-    """Muestra solo las multas pendientes de pago"""
-    st.subheader("⏳ Multas Pendientes")
+    """Muestra todas las multas (ahora todas se consideran pendientes)"""
+    st.subheader("⏳ Todas las Multas")
     
     try:
         conexion = obtener_conexion()
@@ -354,7 +332,7 @@ def mostrar_multas_pendientes():
             
             id_grupo = st.session_state.usuario.get('id_grupo', 1)
             
-            # Obtener multas pendientes (SIMPLIFICADO)
+            # Obtener todas las multas (ACTUALIZADO - sin estado)
             cursor.execute("""
                 SELECT 
                     m.id_multa,
@@ -364,30 +342,29 @@ def mostrar_multas_pendientes():
                     m.fecha_registro
                 FROM multa m
                 JOIN miembrogapc mb ON m.id_miembro = mb.id_miembro
-                JOIN estado e ON m.id_estado = e.id_estado
-                WHERE mb.id_grupo = %s AND e.nombre_estado != 'pagado'
+                WHERE mb.id_grupo = %s
                 ORDER BY m.fecha_registro DESC
             """, (id_grupo,))
             
-            multas_pendientes = cursor.fetchall()
+            multas = cursor.fetchall()
             cursor.close()
             conexion.close()
             
-            if multas_pendientes:
+            if multas:
                 # Estadísticas
-                total_pendientes = len(multas_pendientes)
-                total_monto_pendiente = sum(m['monto'] for m in multas_pendientes)
+                total_multas = len(multas)
+                total_monto = sum(m['monto'] for m in multas)
                 
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.metric("📊 Multas Pendientes", total_pendientes)
+                    st.metric("📊 Total Multas", total_multas)
                 with col2:
-                    st.metric("💰 Total Pendiente", f"${total_monto_pendiente:,.2f}")
+                    st.metric("💰 Total Pendiente", f"${total_monto:,.2f}")
                 
                 st.markdown("---")
                 
-                for multa in multas_pendientes:
-                    with st.expander(f"🟡 {multa['miembro']} - ${multa['monto']:,.2f}", expanded=False):
+                for multa in multas:
+                    with st.expander(f"⚖️ {multa['miembro']} - ${multa['monto']:,.2f}", expanded=False):
                         col1, col2 = st.columns(2)
                         with col1:
                             st.write(f"**👤 Miembro:** {multa['miembro']}")
@@ -396,20 +373,33 @@ def mostrar_multas_pendientes():
                             st.write(f"**📋 Motivo:** {multa['motivo']}")
                             st.write(f"**📅 Fecha Registro:** {multa['fecha_registro']}")
                         
-                        # Botón para marcar como pagada
-                        if st.button("✅ Marcar como Pagada", key=f"pagar_pend_{multa['id_multa']}"):
-                            marcar_multa_pagada(multa['id_multa'])
+                        # Botón para eliminar multa
+                        if st.button("🗑️ Eliminar Multa", key=f"eliminar_pend_{multa['id_multa']}"):
+                            eliminar_multa(multa['id_multa'])
                             st.rerun()
             else:
-                st.success("✅ No hay multas pendientes en este momento.")
+                st.success("✅ No hay multas registradas en este momento.")
                 
     except Exception as e:
-        st.error(f"❌ Error al cargar multas pendientes: {e}")
+        st.error(f"❌ Error al cargar multas: {e}")
 
 def mostrar_multas_pagadas():
-    """Muestra las multas que han sido pagadas"""
-    st.subheader("✅ Multas Pagadas")
+    """Como ya no hay estado, esta función muestra un mensaje informativo"""
+    st.subheader("✅ Gestión de Pagos de Multas")
     
+    st.info("""
+    **📝 Información:**
+    Con la nueva estructura de la tabla multas, todas las multas se consideran activas.
+    Para registrar el pago de una multa, puedes:
+    
+    1. **Eliminar la multa** si ha sido pagada (desde la vista principal)
+    2. **Registrar un pago** en el módulo de reuniones como "PagoMulta"
+    3. **Llevar un control manual** de qué multas han sido pagadas
+    
+    **💡 Sugerencia:** Puedes usar el módulo de reuniones para registrar los pagos de multas.
+    """)
+    
+    # Mostrar estadísticas generales
     try:
         conexion = obtener_conexion()
         if conexion:
@@ -417,76 +407,47 @@ def mostrar_multas_pagadas():
             
             id_grupo = st.session_state.usuario.get('id_grupo', 1)
             
-            # Obtener multas pagadas
+            # Obtener estadísticas de multas
             cursor.execute("""
                 SELECT 
-                    m.id_multa,
-                    mb.nombre as miembro,
-                    m.motivo,
-                    m.monto,
-                    m.fecha_registro
+                    COUNT(*) as total_multas,
+                    SUM(m.monto) as total_monto
                 FROM multa m
                 JOIN miembrogapc mb ON m.id_miembro = mb.id_miembro
-                JOIN estado e ON m.id_estado = e.id_estado
-                WHERE mb.id_grupo = %s AND e.nombre_estado = 'pagado'
-                ORDER BY m.fecha_registro DESC
+                WHERE mb.id_grupo = %s
             """, (id_grupo,))
             
-            multas_pagadas = cursor.fetchall()
+            stats = cursor.fetchone()
             cursor.close()
             conexion.close()
             
-            if multas_pagadas:
-                st.info(f"📊 Se encontraron {len(multas_pagadas)} multas pagadas")
-                
-                total_recaudado = sum(m['monto'] for m in multas_pagadas)
-                st.metric("💰 Total Recaudado por Multas", f"${total_recaudado:,.2f}")
-                
-                st.markdown("---")
-                
-                for multa in multas_pagadas:
-                    with st.expander(f"✅ #{multa['id_multa']} - {multa['miembro']} - ${multa['monto']:,.2f}", expanded=False):
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            st.write(f"**👤 Miembro:** {multa['miembro']}")
-                            st.write(f"**💰 Monto:** ${multa['monto']:,.2f}")
-                        with col2:
-                            st.write(f"**📋 Motivo:** {multa['motivo']}")
-                            st.write(f"**📅 Fecha Registro:** {multa['fecha_registro']}")
-            else:
-                st.info("📝 No hay multas pagadas.")
+            if stats:
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("📊 Total Multas Activas", stats['total_multas'])
+                with col2:
+                    st.metric("💰 Monto Total", f"${stats['total_monto'] or 0:,.2f}")
                 
     except Exception as e:
-        st.error(f"❌ Error al cargar multas pagadas: {e}")
+        st.error(f"❌ Error al cargar estadísticas: {e}")
 
-def marcar_multa_pagada(id_multa):
-    """Marca una multa como pagada y actualiza el estado"""
+def eliminar_multa(id_multa):
+    """Elimina una multa de la base de datos"""
     try:
         conexion = obtener_conexion()
         if conexion:
             cursor = conexion.cursor()
             
-            # Obtener el id_estado para 'pagado'
-            cursor.execute("SELECT id_estado FROM estado WHERE nombre_estado = 'pagado'")
-            estado_pagado = cursor.fetchone()
+            # Eliminar multa
+            cursor.execute("DELETE FROM multa WHERE id_multa = %s", (id_multa,))
             
-            if estado_pagado:
-                id_estado_pagado = estado_pagado['id_estado']
-                
-                # Actualizar multa a estado 'pagado'
-                cursor.execute("""
-                    UPDATE multa 
-                    SET id_estado = %s
-                    WHERE id_multa = %s
-                """, (id_estado_pagado, id_multa))
-                
-                conexion.commit()
-                cursor.close()
-                conexion.close()
-                
-                st.success("✅ Multa marcada como pagada exitosamente")
-            else:
-                st.error("❌ No se pudo encontrar el estado 'pagado' en la base de datos")
+            conexion.commit()
+            cursor.close()
+            conexion.close()
+            
+            st.success("✅ Multa eliminada exitosamente")
             
     except Exception as e:
-        st.error(f"❌ Error al actualizar multa: {e}")
+        st.error(f"❌ Error al eliminar multa: {e}")
+
+# Eliminé la función marcar_multa_pagada() ya que no es necesaria con la nueva estructura
