@@ -669,7 +669,12 @@ def guardar_reunion_completa(fecha, hora, asistencias, aportes, prestamos, multa
                 cursor.execute("""
                     INSERT INTO aporte (id_reunion, id_miembro, monto, tipo)
                     VALUES (%s, %s, %s, %s)
-                """, (id_reunion, pago['id_miembro'], pago['monto'], tipo_aporte))
+                """, cursor.execute("""
+    UPDATE miembrogapc
+    SET saldo_actual = saldo_actual + %s
+    WHERE id_miembro = %s
+""", (aporte['monto'], aporte['id_miembro']))
+ (id_reunion, pago['id_miembro'], pago['monto'], tipo_aporte))
             
             conexion.commit()
             cursor.close()
@@ -728,6 +733,7 @@ def mostrar_historial_reuniones():
                 
     except Exception as e:
         st.error(f"❌ Error al cargar historial: {e}")
+
 
 
 
