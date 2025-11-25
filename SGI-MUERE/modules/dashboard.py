@@ -3,6 +3,7 @@ from datetime import datetime
 from utils.roles import es_promotora
 from modules.configuracion import obtener_conexion
 from modules import nuevo_grupo  # ✅ Importar el nuevo módulo
+from modules import ver_grupos_distrito  # ✅ Importar el módulo de ver grupos
 
 def obtener_distrito_promotora(usuario):
     """Obtiene el distrito asignado a la promotora a través de su grupo"""
@@ -85,6 +86,30 @@ def mostrar_dashboard_principal():
     </div>
     """, unsafe_allow_html=True)
     
+    # ----------------- VERIFICAR SI MOSTRAR VER GRUPOS DISTRITO -------------------
+    if st.session_state.get('mostrar_grupos_distrito', False):
+        ver_grupos_distrito.mostrar_grupos_por_distrito()
+        
+        st.markdown("---")
+        if st.button("⬅️ Volver al Dashboard Principal", use_container_width=True, type="secondary"):
+            st.session_state.mostrar_grupos_distrito = False
+            if 'grupo_seleccionado_id' in st.session_state:
+                del st.session_state.grupo_seleccionado_id
+            st.rerun()
+        
+        return  # Detener el resto del dashboard
+    
+    # ----------------- VERIFICAR SI MOSTRAR FORMULARIO NUEVO GRUPO -------------------
+    if st.session_state.get('mostrar_nuevo_grupo', False):
+        nuevo_grupo.mostrar_formulario_nuevo_grupo()
+        
+        st.markdown("---")
+        if st.button("❌ Cancelar", use_container_width=True):
+            st.session_state.mostrar_nuevo_grupo = False
+            st.rerun()
+        
+        return  # Detener el resto del dashboard
+    
     # ----------------- ACCIONES ESPECIALES PARA PROMOTORA -------------------
     if es_promotora(usuario):
         st.markdown("---")
@@ -98,23 +123,13 @@ def mostrar_dashboard_principal():
                 st.rerun()
         
         with col2:
-            if st.button("📊 Reporte por Grupo", use_container_width=True, type="primary"):
-                st.info("🚧 Funcionalidad en desarrollo: Reporte por grupo")
+            if st.button("📊 Ver Grupos por Distrito", use_container_width=True, type="primary"):
+                st.session_state.mostrar_grupos_distrito = True
+                st.rerun()
         
         with col3:
-            if st.button("🗺️ Ver Grupos del Distrito", use_container_width=True, type="primary"):
-                mostrar_grupos_distrito(usuario)
-    
-    # Mostrar formulario de nuevo grupo si se activó
-    if hasattr(st.session_state, 'mostrar_nuevo_grupo') and st.session_state.mostrar_nuevo_grupo:
-        st.markdown("---")
-        nuevo_grupo.mostrar_formulario_nuevo_grupo()
-        
-        if st.button("❌ Cancelar", use_container_width=True):
-            st.session_state.mostrar_nuevo_grupo = False
-            st.rerun()
-        
-        return  # Detener el resto del dashboard
+            if st.button("📈 Reporte Consolidado", use_container_width=True, type="primary"):
+                st.info("🚧 Funcionalidad en desarrollo: Reporte consolidado de todos los grupos")
     
     # ----------------- MÓDULOS -------------------
     st.markdown("---")
@@ -162,60 +177,3 @@ def mostrar_dashboard_principal():
         f'<p class="compact-text">*Última actualización: {datetime.now().strftime("%d/%m/%Y %H:%M")}*</p>',
         unsafe_allow_html=True
     )
-
-def mostrar_grupos_distrito(usuario):
-    """Muestra todos los grupos del distrito de la promotora"""
-    try:
-        conexion = obtener_conexion()
-        if conexion:
-            cursor = conexion.cursor()
-            
-            cursor.execute("""
-                SELECT g.id_distrito
-                FROM miembrogapc mg
-                JOIN grupo g ON mg.id_grupo = g.id_grupo
-                WHERE mg.id_miembro = %s
-            """, (usuario.get('id_miembro'),))
-            
-            resultado = cursor.fetchone()
-            
-            if resultado:
-                id_distrito = resultado['id_distrito']
-                
-                cursor.execute("""
-                    SELECT 
-                        g.id_grupo,
-                        g.nombre_grupo,
-                        g.nombre_comunidad,
-                        g.fecha_formacion,
-                        COUNT(DISTINCT m.id_miembro) as total_miembros
-                    FROM grupo g
-                    LEFT JOIN miembrogapc m ON g.id_grupo = m.id_grupo
-                    WHERE g.id_distrito = %s
-                    GROUP BY g.id_grupo
-                    ORDER BY g.nombre_grupo
-                """, (id_distrito,))
-                
-                grupos = cursor.fetchall()
-                
-                cursor.close()
-                conexion.close()
-                
-                if grupos:
-                    st.subheader("🗺️ Grupos en tu Distrito")
-                    
-                    for grupo in grupos:
-                        with st.expander(f"**{grupo['nombre_grupo']}** - {grupo['nombre_comunidad']}"):
-                            col1, col2 = st.columns(2)
-                            with col1:
-                                st.write(f"**ID Grupo:** {grupo['id_grupo']}")
-                                st.write(f"**Fecha Formación:** {grupo['fecha_formacion']}")
-                            with col2:
-                                st.write(f"**Total Miembros:** {grupo['total_miembros']}")
-                else:
-                    st.info("No hay grupos registrados en este distrito")
-            else:
-                st.warning("No se pudo determinar el distrito")
-                
-    except Exception as e:
-        st.error(f"❌ Error al obtener grupos del distrito: {e}")
