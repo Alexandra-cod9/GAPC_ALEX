@@ -7,9 +7,7 @@ def mostrar_dashboard_principal():
     usuario = st.session_state.usuario
     id_grupo_usuario = usuario.get('id_grupo')
 
-    # Obtener estadísticas reales (aunque ya no se usan en pantalla)
-    estadisticas = obtener_estadisticas_reales(id_grupo_usuario)
-
+  
     # ----------------- SIDEBAR -------------------
     with st.sidebar:
         st.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
@@ -92,3 +90,4 @@ def mostrar_dashboard_principal():
         f'<p class="compact-text">*Última actualización: {datetime.now().strftime("%d/%m/%Y %H:%M")}*</p>',
         unsafe_allow_html=True
     )
+
