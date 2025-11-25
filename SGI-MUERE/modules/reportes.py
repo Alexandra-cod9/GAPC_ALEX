@@ -52,8 +52,14 @@ def generar_reporte_mensual(mes_nombre, año):
             
             id_grupo = st.session_state.usuario.get('id_grupo', 1)
             
-            # Convertir nombre del mes a número
-            mes_numero = list(calendar.month_name).index(mes_nombre)
+            # CORRECCIÓN: Mapear nombres de meses en español a números
+            meses_espanol = {
+                "Enero": 1, "Febrero": 2, "Marzo": 3, "Abril": 4,
+                "Mayo": 5, "Junio": 6, "Julio": 7, "Agosto": 8,
+                "Septiembre": 9, "Octubre": 10, "Noviembre": 11, "Diciembre": 12
+            }
+            
+            mes_numero = meses_espanol[mes_nombre]
             
             # Fechas del periodo
             fecha_inicio = f"{año}-{mes_numero:02d}-01"
@@ -346,4 +352,3 @@ def obtener_conexion():
     except Exception as e:
         st.error(f"❌ Error de conexión: {e}")
         return None
-
