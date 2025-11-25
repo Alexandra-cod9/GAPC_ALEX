@@ -226,7 +226,7 @@ def mostrar_nueva_multa():
                 - **Estado:** Activo
                 """)
             
-            # Botón de envío
+            # ✅ BOTÓN DE ENVÍO CORREGIDO - DENTRO DEL FORM
             submitted = st.form_submit_button(
                 "⚖️ Registrar Multa", 
                 use_container_width=True,
