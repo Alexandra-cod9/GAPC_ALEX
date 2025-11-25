@@ -64,22 +64,29 @@ def mostrar_todas_multas():
             
             id_grupo = st.session_state.usuario.get('id_grupo', 1)
             
-            # Obtener todas las multas del grupo (CONSULTA CORREGIDA)
+            # Obtener todas las multas del grupo (CORREGIDO según esquema de BD)
             cursor.execute("""
                 SELECT 
                     m.id_multa,
                     mb.nombre as miembro,
                     m.motivo,
                     m.monto,
-                    m.fecha_registro as fecha_multa,
+                    m.fecha_multa,
+                    m.fecha_vencimiento,
                     e.nombre_estado as estado,
-                    m.descripcion, 
+                    m.descripcion,
+                    DATEDIFF(m.fecha_vencimiento, CURDATE()) as dias_restantes,
+                    CASE 
                         WHEN e.nombre_estado = 'pagado' THEN 'Pagada'
+                        WHEN DATEDIFF(m.fecha_vencimiento, CURDATE()) < 0 THEN 'Vencida'
+                        WHEN DATEDIFF(m.fecha_vencimiento, CURDATE()) <= 7 THEN 'Por vencer'
+                        ELSE 'En tiempo'
+                    END as situacion
                 FROM multa m
                 JOIN miembrogapc mb ON m.id_miembro = mb.id_miembro
                 JOIN estado e ON m.id_estado = e.id_estado
                 WHERE mb.id_grupo = %s
-                ORDER BY e.nombre_estado DESC
+                ORDER BY e.nombre_estado, m.fecha_vencimiento DESC
             """, (id_grupo,))
             
             multas = cursor.fetchall()
@@ -358,10 +365,10 @@ def guardar_multa(miembro, motivo, monto, fecha_multa, fecha_vencimiento, descri
             if estado_activo:
                 id_estado_activo = estado_activo['id_estado']
                 
-                # Insertar multa (CONSULTA CORREGIDA - usando fecha_registro)
+                # Insertar multa (CORREGIDO según esquema de BD)
                 cursor.execute("""
                     INSERT INTO multa (
-                        id_miembro, motivo, monto, fecha_registro, 
+                        id_miembro, motivo, monto, fecha_multa, 
                         fecha_vencimiento, descripcion, id_estado
                     ) VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """, (
@@ -408,14 +415,14 @@ def mostrar_multas_pendientes():
             
             id_grupo = st.session_state.usuario.get('id_grupo', 1)
             
-            # Obtener multas pendientes (CONSULTA CORREGIDA)
+            # Obtener multas pendientes (CORREGIDO según esquema de BD)
             cursor.execute("""
                 SELECT 
                     m.id_multa,
                     mb.nombre as miembro,
                     m.motivo,
                     m.monto,
-                    m.fecha_registro as fecha_multa,
+                    m.fecha_multa,
                     m.fecha_vencimiento,
                     m.descripcion,
                     DATEDIFF(m.fecha_vencimiento, CURDATE()) as dias_restantes,
@@ -501,14 +508,14 @@ def mostrar_multas_pagadas():
             
             id_grupo = st.session_state.usuario.get('id_grupo', 1)
             
-            # Obtener multas pagadas (CONSULTA CORREGIDA)
+            # Obtener multas pagadas (CORREGIDO según esquema de BD)
             cursor.execute("""
                 SELECT 
                     m.id_multa,
                     mb.nombre as miembro,
                     m.motivo,
                     m.monto,
-                    m.fecha_registro as fecha_multa,
+                    m.fecha_multa,
                     m.fecha_vencimiento,
                     m.descripcion
                 FROM multa m
@@ -562,7 +569,7 @@ def marcar_multa_pagada(id_multa):
             if estado_pagado:
                 id_estado_pagado = estado_pagado['id_estado']
                 
-                # Actualizar multa a estado 'pagado'
+                # Actualizar multa a estado 'pagado' (CORREGIDO según esquema de BD)
                 cursor.execute("""
                     UPDATE multa 
                     SET id_estado = %s
@@ -579,4 +586,3 @@ def marcar_multa_pagada(id_multa):
             
     except Exception as e:
         st.error(f"❌ Error al actualizar multa: {e}")
-
