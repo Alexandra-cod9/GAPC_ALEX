@@ -650,12 +650,13 @@ def guardar_reunion_completa(fecha, hora, asistencias, aportes, prestamos, multa
                 """, (prestamo['id_miembro'], id_reunion, prestamo['monto'], prestamo['proposito'], 
                       prestamo['fecha_vencimiento'], prestamo['plazo_meses'], 'aprobado'))
             
-            # 5. Guardar multas - ACTUALIZADO PARA LA NUEVA ESTRUCTURA
+            # 5. Guardar multas - SOLO LAS COLUMNAS EXISTENTES
             for multa in multas:
                 cursor.execute("""
-                    INSERT INTO multa (id_miembro, motivo, monto, estado)
-                    VALUES (%s, %s, %s, %s)
-                """, (multa['id_miembro'], multa['motivo'], multa['monto'], 'activo'))
+                    INSERT INTO multa (id_miembro, motivo, monto)
+                    VALUES (%s, %s, %s)
+                """, (multa['id_miembro'], multa['motivo'], multa['monto']))
+            # fecha_registro se llena automáticamente con curdate()
             
             # 6. Guardar pagos
             for pago in pagos:
@@ -722,6 +723,7 @@ def mostrar_historial_reuniones():
                 
     except Exception as e:
         st.error(f"❌ Error al cargar historial: {e}")
+
 
 
 
