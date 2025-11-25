@@ -616,6 +616,16 @@ def guardar_reunion_completa(fecha, hora, asistencias, aportes, prestamos, multa
             
             id_grupo = st.session_state.usuario.get('id_grupo', 1)
             
+            # OBTENER EL ID_ESTADO CORRECTO PARA MULTAS ACTIVAS
+            cursor.execute("SELECT id_estado FROM estado WHERE nombre_estado = 'activo'")
+            estado_activo = cursor.fetchone()
+            
+            if not estado_activo:
+                st.error("❌ No se encontró el estado 'activo' en la base de datos")
+                return
+            
+            id_estado_activo = estado_activo['id_estado']
+            
             # 1. Insertar la reunión
             cursor.execute("""
                 INSERT INTO reunion (id_grupo, fecha, hora, saldo_inicial, saldo_final, acuerdos)
@@ -624,9 +634,8 @@ def guardar_reunion_completa(fecha, hora, asistencias, aportes, prestamos, multa
             
             id_reunion = cursor.lastrowid
             
-            # 2. Guardar asistencias (CORREGIDO: Solo los que realmente asistieron)
+            # 2. Guardar asistencias
             for id_miembro, asistio in asistencias.items():
-                # Calcular multa aplicada basada en si asistió o no
                 multa_aplicada = 0.0
                 if not asistio:
                     multa_aplicada = obtener_monto_multa_ausencia()
@@ -651,14 +660,14 @@ def guardar_reunion_completa(fecha, hora, asistencias, aportes, prestamos, multa
                 """, (prestamo['id_miembro'], id_reunion, prestamo['monto'], prestamo['proposito'], 
                       prestamo['fecha_vencimiento'], prestamo['plazo_meses'], 'aprobado'))
             
-            # 5. Guardar multas
+            # 5. Guardar multas - USANDO EL ID_ESTADO CORRECTO
             for multa in multas:
                 cursor.execute("""
                     INSERT INTO multa (id_miembro, motivo, monto, id_estado)
                     VALUES (%s, %s, %s, %s)
-                """, (multa['id_miembro'], multa['motivo'], multa['monto'], 1))  # 1 = activo
+                """, (multa['id_miembro'], multa['motivo'], multa['monto'], id_estado_activo))
             
-            # 6. Guardar pagos (se registran como aportes especiales)
+            # 6. Guardar pagos
             for pago in pagos:
                 tipo_aporte = 'PagoPrestamo' if pago['tipo'] == 'Préstamo' else 'PagoMulta'
                 cursor.execute("""
@@ -673,7 +682,6 @@ def guardar_reunion_completa(fecha, hora, asistencias, aportes, prestamos, multa
             st.success("🎉 ¡Reunión guardada exitosamente!")
             st.balloons()
             
-            # Forzar actualización del saldo inicial para la próxima reunión
             st.session_state.ultimo_saldo_actualizado = saldo_final
             
     except Exception as e:
@@ -724,4 +732,5 @@ def mostrar_historial_reuniones():
                 
     except Exception as e:
         st.error(f"❌ Error al cargar historial: {e}")
+
 
