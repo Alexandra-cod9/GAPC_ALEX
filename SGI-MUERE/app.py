@@ -246,64 +246,37 @@ def verificar_login_real(correo, contrasena):
 
 # FUNCIÓN DE LOGIN
 def mostrar_formulario_login():
-    """Muestra el formulario de login"""
-    
+    """Muestra el formulario de login SOLO en modo real"""
+
     st.markdown('<div class="main-header">🏠 Sistema GAPC</div>', unsafe_allow_html=True)
-    
-    # Probar conexión primero
-    if st.button("🔍 Probar Conexión a Base de Datos"):
-        conexion = obtener_conexion()
-        if conexion:
-            st.success("✅ ¡Conexión exitosa a Clever Cloud!")
-            conexion.close()
-        else:
-            st.error("❌ No se pudo conectar a la base de datos")
-    
-    modo = st.radio(
-        "Selecciona modo de acceso:",
-        ["🧪 Modo Prueba", "🔐 Modo Real"],
-        horizontal=True
-    )
-    
+
     st.markdown("""
         <div class="login-container">
     """, unsafe_allow_html=True)
-    
+
     st.markdown('<p class="compact-text"><strong>🔐 Iniciar Sesión</strong></p>', unsafe_allow_html=True)
-    
+
     with st.form("login_form"):
-        if modo == "🔐 Modo Real":
-            correo = st.text_input("📧 Correo Electrónico", placeholder="usuario@ejemplo.com")
-        else:
-            correo = st.text_input("👤 Nombre de Usuario", placeholder="Ingresa cualquier nombre")
-            
+        correo = st.text_input("📧 Correo Electrónico", placeholder="usuario@ejemplo.com")
         contrasena = st.text_input("🔒 Contraseña", type="password", placeholder="••••••••")
-        
+
         submitted = st.form_submit_button("🚀 Ingresar al Sistema", use_container_width=True)
-        
+
         if submitted:
             if correo and contrasena:
                 with st.spinner("Verificando credenciales..."):
-                    if modo == "🔐 Modo Real":
-                        usuario = verificar_login_real(correo, contrasena)
-                        if usuario:
-                            st.session_state.usuario = usuario
-                            st.success(f"¡Bienvenido/a {usuario['nombre']}! 👋")
-                            st.rerun()
-                        else:
-                            st.error("❌ Credenciales incorrectas o usuario no existe")
-                    else:
-                        st.session_state.usuario = {
-                            'nombre': correo.title(),
-                            'tipo_rol': 'Usuario',
-                            'id_grupo': 1
-                        }
-                        st.success(f"¡Bienvenido/a {st.session_state.usuario['nombre']}! 👋 (Modo Prueba)")
+                    usuario = verificar_login_real(correo, contrasena)
+                    if usuario:
+                        st.session_state.usuario = usuario
+                        st.success(f"¡Bienvenido/a {usuario['nombre']}! 👋")
                         st.rerun()
+                    else:
+                        st.error("❌ Credenciales incorrectas o usuario no existe")
             else:
                 st.warning("⚠️ Por favor completa todos los campos")
-    
+
     st.markdown("</div>", unsafe_allow_html=True)
+
 
 # APLICACIÓN PRINCIPAL
 def main():
@@ -315,3 +288,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
