@@ -102,7 +102,7 @@ def calcular_cierre_periodo(fecha_inicio, fecha_fin):
             st.markdown("---")
             st.markdown("### 📊 Paso 2: Datos Base del Período")
             
-            # Obtener saldo final de ahorros por socia
+            # Obtener saldo final de ahorros por socia - CORREGIDO
             cursor.execute("""
                 SELECT 
                     m.id_miembro,
@@ -117,7 +117,11 @@ def calcular_cierre_periodo(fecha_inicio, fecha_fin):
                     END), 0) as multas_pagadas
                 FROM miembrogapc m
                 LEFT JOIN aporte a ON m.id_miembro = a.id_miembro 
-                    AND a.fecha BETWEEN %s AND %s
+                    AND EXISTS (
+                        SELECT 1 FROM reunion r 
+                        WHERE r.id_reunion = a.id_reunion 
+                        AND r.fecha BETWEEN %s AND %s
+                    )
                 WHERE m.id_grupo = %s
                 GROUP BY m.id_miembro, m.nombre
                 HAVING ahorro_total > 0
@@ -130,11 +134,11 @@ def calcular_cierre_periodo(fecha_inicio, fecha_fin):
                 st.error("❌ No hay socias con ahorros en el período seleccionado")
                 return
             
-            # Obtener total fondo del grupo (saldo_final de la última reunión del período)
+            # Obtener total fondo del grupo - CORREGIDO (id_gruppo → id_grupo)
             cursor.execute("""
                 SELECT saldo_final 
                 FROM reunion 
-                WHERE id_gruppo = %s AND fecha BETWEEN %s AND %s 
+                WHERE id_grupo = %s AND fecha BETWEEN %s AND %s 
                 ORDER BY fecha DESC 
                 LIMIT 1
             """, (id_grupo, fecha_inicio, fecha_fin))
@@ -313,7 +317,7 @@ def calcular_cierre_periodo(fecha_inicio, fecha_fin):
 def guardar_cierre_completo(id_grupo, fecha_inicio, fecha_fin, datos_socias, 
                            total_ahorro, total_fondo, porcion_fondo, porcion_redondeada,
                            total_calculo, total_sobrante, saldo_inicial_siguiente, metodo_reparto):
-    """Guarda el cierre completo en la base de datos"""
+    """Guarda el cierre completo en la base de datos - VERSIÓN CORREGIDA"""
     
     try:
         conexion = obtener_conexion()
@@ -322,17 +326,13 @@ def guardar_cierre_completo(id_grupo, fecha_inicio, fecha_fin, datos_socias,
             
         with conexion.cursor() as cursor:
             
-            # 1. Insertar en tabla cierre
+            # 1. Insertar en tabla cierre (estructura básica según schema)
             cursor.execute("""
                 INSERT INTO cierre (
-                    id_grupo, fecha_inicio, fecha_fin, estado,
-                    total_ahorro, total_fondo, porcion_fondo, porcion_redondeada,
-                    total_repartido, total_sobrante, saldo_siguiente_ciclo, metodo_reparto
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    id_grupo, fecha_cierre, estado
+                ) VALUES (%s, %s, %s)
             """, (
-                id_grupo, fecha_inicio, fecha_fin, 'procesado',
-                total_ahorro, total_fondo, porcion_fondo, porcion_redondeada,
-                total_calculo, total_sobrante, saldo_inicial_siguiente, metodo_reparto
+                id_grupo, datetime.now(), 'procesado'
             ))
             
             id_cierre = cursor.lastrowid
@@ -341,15 +341,11 @@ def guardar_cierre_completo(id_grupo, fecha_inicio, fecha_fin, datos_socias,
             for socia in datos_socias:
                 cursor.execute("""
                     INSERT INTO repartoutilidades (
-                        id_cierre, id_miembro, ahorro_socia, calculo_reparto, 
-                        retiro_total, sobrante_redondeo
-                    ) VALUES (%s, %s, %s, %s, %s, %s)
-                """, (
-                    id_cierre, socia['id_miembro'], socia['ahorro_total'],
-                    socia['calculo_proporcional'], socia['retiro'], socia['sobrante']
-                ))
+                        id_cierre, id_miembro
+                    ) VALUES (%s, %s)
+                """, (id_cierre, socia['id_miembro']))
             
-            # 3. Generar acta de cierre
+            # 3. Generar acta de cierre (usando tabla 'acta' existente)
             cursor.execute("""
                 INSERT INTO acta (
                     fecha_acta, acuerdos_detallados, id_grupo
@@ -358,7 +354,9 @@ def guardar_cierre_completo(id_grupo, fecha_inicio, fecha_fin, datos_socias,
                 datetime.now(),
                 f"Acta de cierre del período {fecha_inicio} a {fecha_fin}. "
                 f"Total repartido: ${total_calculo:,.2f}. "
-                f"Método: {metodo_reparto}.",
+                f"Método: {metodo_reparto}. "
+                f"Socias participantes: {len(datos_socias)}. "
+                f"Saldo siguiente ciclo: ${saldo_inicial_siguiente:,.2f}",
                 id_grupo
             ))
             
@@ -392,28 +390,18 @@ def mostrar_historial_cierres():
             
             id_grupo = st.session_state.get('usuario', {}).get('id_grupo', 1)
             
-            # Obtener historial de cierres
+            # Obtener historial de cierres - CORREGIDO para estructura actual
             cursor.execute("""
                 SELECT 
                     c.id_cierre,
-                    c.fecha_inicio,
-                    c.fecha_fin,
+                    c.fecha_cierre,
                     c.estado,
-                    c.total_ahorro,
-                    c.total_fondo,
-                    c.total_repartido,
-                    c.total_sobrante,
-                    c.saldo_siguiente_ciclo,
-                    c.metodo_reparto,
-                    c.fecha_creacion,
                     COUNT(r.id_reparto) as numero_socias
                 FROM cierre c
                 LEFT JOIN repartoutilidades r ON c.id_cierre = r.id_cierre
                 WHERE c.id_grupo = %s
-                GROUP BY c.id_cierre, c.fecha_inicio, c.fecha_fin, c.estado,
-                         c.total_ahorro, c.total_fondo, c.total_repartido, 
-                         c.total_sobrante, c.saldo_siguiente_ciclo, c.metodo_reparto, c.fecha_creacion
-                ORDER BY c.fecha_creacion DESC
+                GROUP BY c.id_cierre, c.fecha_cierre, c.estado
+                ORDER BY c.fecha_cierre DESC
             """, (id_grupo,))
             
             cierres = cursor.fetchall()
@@ -421,8 +409,8 @@ def mostrar_historial_cierres():
             if cierres:
                 for cierre in cierres:
                     with st.expander(
-                        f"📅 Cierre #{cierre['id_cierre']} | {cierre['fecha_inicio']} a {cierre['fecha_fin']} | "
-                        f"${cierre['total_repartido']:,.2f} repartidos", 
+                        f"📅 Cierre #{cierre['id_cierre']} | {cierre['fecha_cierre']} | "
+                        f"Estado: {cierre['estado']}", 
                         expanded=False
                     ):
                         col1, col2, col3 = st.columns(3)
@@ -430,20 +418,14 @@ def mostrar_historial_cierres():
                         with col1:
                             st.write(f"**📊 Estadísticas:**")
                             st.write(f"- Socias participantes: {cierre['numero_socias']}")
-                            st.write(f"- Total ahorro: ${cierre['total_ahorro']:,.2f}")
-                            st.write(f"- Total fondo: ${cierre['total_fondo']:,.2f}")
                         
                         with col2:
-                            st.write(f"**💰 Reparto:**")
-                            st.write(f"- Método: {cierre['metodo_reparto']}")
-                            st.write(f"- Total repartido: ${cierre['total_repartido']:,.2f}")
-                            st.write(f"- Total sobrante: ${cierre['total_sobrante']:,.4f}")
-                        
-                        with col3:
                             st.write(f"**🔒 Estado:**")
                             st.write(f"- Estado: {cierre['estado']}")
-                            st.write(f"- Saldo siguiente: ${cierre['saldo_siguiente_ciclo']:,.2f}")
-                            st.write(f"- Fecha: {cierre['fecha_creacion'].strftime('%d/%m/%Y')}")
+                        
+                        with col3:
+                            st.write(f"**📅 Fecha:**")
+                            st.write(f"- Fecha: {cierre['fecha_cierre'].strftime('%d/%m/%Y')}")
                         
                         # Botón para ver detalles completos
                         if st.button("👁️ Ver Detalles Completos", key=f"detalles_{cierre['id_cierre']}"):
@@ -456,8 +438,44 @@ def mostrar_historial_cierres():
 
 def mostrar_detalles_cierre(id_cierre):
     """Muestra los detalles completos de un cierre específico"""
-    st.info(f"🔧 Mostrando detalles del cierre #{id_cierre}...")
-    # Aquí puedes implementar la visualización detallada del cierre
+    try:
+        conexion = obtener_conexion()
+        if not conexion:
+            return
+            
+        with conexion.cursor() as cursor:
+            # Obtener detalles del reparto
+            cursor.execute("""
+                SELECT 
+                    r.id_reparto,
+                    m.nombre,
+                    m.dui
+                FROM repartoutilidades r
+                JOIN miembrogapc m ON r.id_miembro = m.id_miembro
+                WHERE r.id_cierre = %s
+            """, (id_cierre,))
+            
+            detalles = cursor.fetchall()
+            
+            if detalles:
+                st.subheader(f"👥 Socias participantes en el cierre #{id_cierre}")
+                
+                df_detalles = pd.DataFrame(detalles)
+                st.dataframe(
+                    df_detalles,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "id_reparto": "ID Reparto",
+                        "nombre": "Nombre Socia",
+                        "dui": "DUI"
+                    }
+                )
+            else:
+                st.info("No se encontraron detalles para este cierre.")
+                
+    except Exception as e:
+        st.error(f"❌ Error al cargar detalles del cierre: {e}")
 
 def obtener_conexion():
     """Función para obtener conexión a la base de datos"""
