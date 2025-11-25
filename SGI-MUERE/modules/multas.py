@@ -72,21 +72,14 @@ def mostrar_todas_multas():
                     m.motivo,
                     m.monto,
                     m.fecha_registro as fecha_multa,
-                    m.fecha_vencimiento,
                     e.nombre_estado as estado,
-                    m.descripcion,
-                    DATEDIFF(m.fecha_vencimiento, CURDATE()) as dias_restantes,
-                    CASE 
+                    m.descripcion, 
                         WHEN e.nombre_estado = 'pagado' THEN 'Pagada'
-                        WHEN DATEDIFF(m.fecha_vencimiento, CURDATE()) < 0 THEN 'Vencida'
-                        WHEN DATEDIFF(m.fecha_vencimiento, CURDATE()) <= 7 THEN 'Por vencer'
-                        ELSE 'En tiempo'
-                    END as situacion
                 FROM multa m
                 JOIN miembrogapc mb ON m.id_miembro = mb.id_miembro
                 JOIN estado e ON m.id_estado = e.id_estado
                 WHERE mb.id_grupo = %s
-                ORDER BY e.nombre_estado, m.fecha_vencimiento DESC
+                ORDER BY e.nombre_estado DESC
             """, (id_grupo,))
             
             multas = cursor.fetchall()
@@ -586,3 +579,4 @@ def marcar_multa_pagada(id_multa):
             
     except Exception as e:
         st.error(f"❌ Error al actualizar multa: {e}")
+
