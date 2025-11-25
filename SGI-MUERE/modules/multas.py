@@ -167,8 +167,11 @@ def mostrar_nueva_multa():
     """)
     
     with st.form("form_nueva_multa"):
-        # Buscar miembro
+        # Buscar miembro - DEBE estar dentro del form
         miembro_seleccionado = buscar_miembro_multa()
+        
+        motivo_final = ""
+        monto_multa = 0.0
         
         if miembro_seleccionado:
             st.markdown("---")
@@ -188,11 +191,12 @@ def mostrar_nueva_multa():
             with col1:
                 motivo = st.selectbox(
                     "📋 Motivo de la multa:",
-                    ["Falta a reunión", "Llegada tarde", "Incumplimiento de pago", "Otro"]
+                    ["Falta a reunión", "Llegada tarde", "Incumplimiento de pago", "Otro"],
+                    key="motivo_select"
                 )
                 
                 if motivo == "Otro":
-                    motivo_personalizado = st.text_input("📝 Especificar motivo:")
+                    motivo_personalizado = st.text_input("📝 Especificar motivo:", key="motivo_otro")
                     motivo_final = motivo_personalizado if motivo_personalizado else "Otro"
                 else:
                     motivo_final = motivo
@@ -202,7 +206,8 @@ def mostrar_nueva_multa():
                     "💰 Monto de la multa:",
                     min_value=0.0,
                     value=50.0,
-                    step=10.0
+                    step=10.0,
+                    key="monto_multa"
                 )
             
             # Resumen
@@ -225,24 +230,22 @@ def mostrar_nueva_multa():
                 - **Fecha registro:** Hoy
                 - **Estado:** Activo
                 """)
-            
-            # ✅ BOTÓN DE ENVÍO CORREGIDO - DENTRO DEL FORM
-            submitted = st.form_submit_button(
-                "⚖️ Registrar Multa", 
-                use_container_width=True,
-                type="primary"
-            )
-            
-            if submitted:
-                if monto_multa > 0 and motivo_final:
-                    guardar_multa(miembro_seleccionado, motivo_final, monto_multa)
-                else:
-                    st.error("❌ Completa todos los campos obligatorios")
-        else:
-            st.warning("👤 Selecciona un miembro para continuar")
+        
+        # ✅ BOTÓN DE ENVÍO - DEBE ESTAR DIRECTAMENTE DENTRO DEL FORM, SIN CONDICIONES
+        submitted = st.form_submit_button(
+            "⚖️ Registrar Multa", 
+            use_container_width=True,
+            type="primary"
+        )
+        
+        if submitted:
+            if miembro_seleccionado and monto_multa > 0 and motivo_final:
+                guardar_multa(miembro_seleccionado, motivo_final, monto_multa)
+            else:
+                st.error("❌ Completa todos los campos obligatorios: selecciona un miembro, ingresa un motivo y un monto válido")
 
 def buscar_miembro_multa():
-    """Busca y selecciona un miembro para multa"""
+    """Busca y selecciona un miembro para multa - Versión modificada para forms"""
     try:
         conexion = obtener_conexion()
         if conexion:
@@ -272,7 +275,7 @@ def buscar_miembro_multa():
                 miembro_seleccionado_opcion = st.selectbox(
                     "👤 Selecciona el miembro a multar:",
                     opciones,
-                    key="selector_miembro_multa"
+                    key="selector_miembro_multa_form"
                 )
                 
                 if miembro_seleccionado_opcion and miembro_seleccionado_opcion != "Selecciona un miembro":
@@ -281,7 +284,7 @@ def buscar_miembro_multa():
                     miembro_info = next((m for m in miembros if m['id_miembro'] == miembro_id), None)
                     return miembro_info
             else:
-                st.info("📝 No hay miembros en este grupo.")
+                st.warning("📝 No hay miembros en este grupo.")
                 return None
                 
     except Exception as e:
@@ -328,9 +331,12 @@ def guardar_multa(miembro, motivo, monto):
                 - **Miembro:** {miembro['nombre']}
                 - **Motivo:** {motivo}
                 - **Monto:** ${monto:,.2f}
-                - **Fecha Registro:** Hoy
+                - **Fecha Registro:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
                 - **Estado:** Activo
                 """)
+                
+                # Limpiar el formulario
+                st.rerun()
             else:
                 st.error("❌ No se pudo encontrar el estado 'activo' en la base de datos")
             
