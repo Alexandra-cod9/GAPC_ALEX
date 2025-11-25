@@ -1,12 +1,3 @@
-El error indica que la promotora no tiene un distrito asignado correctamente. Esto puede ser porque:
-
-1. La promotora no está en un grupo
-2. El grupo no tiene un distrito asignado
-3. Hay un problema con los JOINs
-
-Vamos a agregar **debugging** y una **solución alternativa** al archivo `nuevo_grupo.py`:
-
-```python
 import streamlit as st
 import pymysql
 from datetime import datetime
@@ -509,23 +500,3 @@ def crear_grupo_completo(id_distrito, nombre_grupo, nombre_comunidad, fecha_form
             'exito': False,
             'mensaje': f'Error inesperado: {str(e)}'
         }
-```
-
-## Cambios principales:
-
-1. ✅ **`obtener_distrito_promotora_mejorado()`**: Intenta dos métodos diferentes para obtener el distrito
-
-2. ✅ **Debugging mejorado**: Muestra información detallada del usuario, miembro y grupo cuando falla
-
-3. ✅ **Opción de respaldo**: `seleccionar_distrito_manual()` permite seleccionar el distrito de una lista completa si no se detecta automáticamente
-
-4. ✅ **Manejo de campos vacíos**: Los campos opcionales (meta_social, reglamento, etc.) se manejan correctamente con valores por defecto
-
-5. ✅ **Mejor feedback**: Mensajes más claros sobre qué está fallando
-
-Ahora cuando tengas el error:
-1. Verás un expander "🔍 Ver información de depuración" con todos los datos
-2. Aparecerá un selector manual de distritos como alternativa
-3. Podrás crear el grupo seleccionando el distrito manualmente
-
-Esto te ayudará a identificar el problema y seguir trabajando mientras lo resuelves.
