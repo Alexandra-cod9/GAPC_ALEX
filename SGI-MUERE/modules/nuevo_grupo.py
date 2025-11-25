@@ -1,3 +1,12 @@
+El error indica que la promotora no tiene un distrito asignado correctamente. Esto puede ser porque:
+
+1. La promotora no está en un grupo
+2. El grupo no tiene un distrito asignado
+3. Hay un problema con los JOINs
+
+Vamos a agregar **debugging** y una **solución alternativa** al archivo `nuevo_grupo.py`:
+
+```python
 import streamlit as st
 import pymysql
 from datetime import datetime
@@ -27,15 +36,51 @@ def mostrar_formulario_nuevo_grupo():
     st.markdown("# ➕ Crear Nuevo Grupo GAPC")
     st.markdown("---")
     
-    # Obtener el distrito de la promotora
-    distrito_promotora = obtener_distrito_promotora()
+    # Obtener el distrito de la promotora con debugging
+    distrito_promotora = obtener_distrito_promotora_mejorado()
     
     if not distrito_promotora:
-        st.error("❌ No se pudo obtener tu distrito asignado. Contacta al administrador.")
-        return
+        st.error("❌ No se pudo obtener tu distrito asignado.")
+        
+        # Mostrar información de debugging
+        with st.expander("🔍 Ver información de depuración"):
+            usuario = st.session_state.usuario
+            st.json(usuario)
+            
+            # Verificar datos del usuario
+            conexion = obtener_conexion()
+            if conexion:
+                cursor = conexion.cursor()
+                
+                # Ver datos del miembro
+                cursor.execute("SELECT * FROM miembrogapc WHERE id_miembro = %s", (usuario.get('id_miembro'),))
+                miembro = cursor.fetchone()
+                st.write("**Datos del miembro:**")
+                st.json(miembro)
+                
+                # Ver datos del grupo
+                if miembro and miembro.get('id_grupo'):
+                    cursor.execute("SELECT * FROM grupo WHERE id_grupo = %s", (miembro['id_grupo'],))
+                    grupo = cursor.fetchone()
+                    st.write("**Datos del grupo:**")
+                    st.json(grupo)
+                
+                cursor.close()
+                conexion.close()
+        
+        # Opción alternativa: Seleccionar distrito manualmente
+        st.markdown("---")
+        st.warning("⚠️ Como alternativa, puedes seleccionar el distrito manualmente:")
+        distrito_manual = seleccionar_distrito_manual()
+        
+        if distrito_manual:
+            distrito_promotora = distrito_manual
+        else:
+            st.info("👆 Selecciona un distrito arriba para continuar")
+            return
     
-    st.info(f"""
-    **📍 Tu distrito asignado:**
+    st.success(f"""
+    ✅ **📍 Distrito asignado:**
     - **Distrito:** {distrito_promotora['nombre_distrito']}
     - **Municipio:** {distrito_promotora['nombre_municipio']}
     - **Departamento:** {distrito_promotora['nombre_departamento']}
@@ -232,14 +277,16 @@ def mostrar_formulario_nuevo_grupo():
                     - **Ubicación:** {distrito_promotora['nombre_distrito']}
                     """)
                     
-                    # Botón para volver
+                    # Limpiar el flag y recargar
+                    st.session_state.mostrar_nuevo_grupo = False
+                    
                     if st.button("⬅️ Volver al Dashboard"):
                         st.rerun()
                 else:
                     st.error(f"❌ Error al crear el grupo: {resultado['mensaje']}")
 
-def obtener_distrito_promotora():
-    """Obtiene el distrito asignado a la promotora"""
+def obtener_distrito_promotora_mejorado():
+    """Obtiene el distrito asignado a la promotora con múltiples intentos"""
     try:
         conexion = obtener_conexion()
         if conexion:
@@ -248,6 +295,7 @@ def obtener_distrito_promotora():
             usuario = st.session_state.usuario
             id_miembro = usuario.get('id_miembro')
             
+            # Intento 1: Query con todos los JOINs
             cursor.execute("""
                 SELECT 
                     d.id_distrito,
@@ -263,12 +311,92 @@ def obtener_distrito_promotora():
             """, (id_miembro,))
             
             distrito = cursor.fetchone()
+            
+            if distrito:
+                cursor.close()
+                conexion.close()
+                return distrito
+            
+            # Intento 2: Obtener solo el id_distrito del grupo
+            cursor.execute("""
+                SELECT g.id_distrito
+                FROM miembrogapc mg
+                JOIN grupo g ON mg.id_grupo = g.id_grupo
+                WHERE mg.id_miembro = %s
+            """, (id_miembro,))
+            
+            resultado = cursor.fetchone()
+            
+            if resultado and resultado['id_distrito']:
+                # Ahora obtener la info completa del distrito
+                cursor.execute("""
+                    SELECT 
+                        d.id_distrito,
+                        d.nombre_distrito,
+                        m.nombre_municipio,
+                        dep.nombre_departamento
+                    FROM distrito d
+                    JOIN municipio m ON d.id_municipio = m.id_municipio
+                    JOIN departamento dep ON m.id_departamento = dep.id_departamento
+                    WHERE d.id_distrito = %s
+                """, (resultado['id_distrito'],))
+                
+                distrito = cursor.fetchone()
+                cursor.close()
+                conexion.close()
+                return distrito
+            
             cursor.close()
             conexion.close()
             
-            return distrito
     except Exception as e:
         st.error(f"❌ Error al obtener distrito: {e}")
+    
+    return None
+
+def seleccionar_distrito_manual():
+    """Permite seleccionar un distrito manualmente de la lista completa"""
+    try:
+        conexion = obtener_conexion()
+        if conexion:
+            cursor = conexion.cursor()
+            
+            # Obtener todos los distritos
+            cursor.execute("""
+                SELECT 
+                    d.id_distrito,
+                    d.nombre_distrito,
+                    m.nombre_municipio,
+                    dep.nombre_departamento
+                FROM distrito d
+                JOIN municipio m ON d.id_municipio = m.id_municipio
+                JOIN departamento dep ON m.id_departamento = dep.id_departamento
+                ORDER BY dep.nombre_departamento, m.nombre_municipio, d.nombre_distrito
+            """)
+            
+            distritos = cursor.fetchall()
+            cursor.close()
+            conexion.close()
+            
+            if distritos:
+                opciones = [
+                    f"{d['nombre_distrito']} - {d['nombre_municipio']}, {d['nombre_departamento']}"
+                    for d in distritos
+                ]
+                
+                seleccion = st.selectbox(
+                    "📍 Selecciona el distrito donde se creará el grupo:",
+                    opciones,
+                    key="distrito_manual"
+                )
+                
+                if seleccion:
+                    # Encontrar el distrito seleccionado
+                    indice = opciones.index(seleccion)
+                    return distritos[indice]
+    
+    except Exception as e:
+        st.error(f"❌ Error al cargar distritos: {e}")
     
     return None
 
@@ -287,7 +415,9 @@ def crear_grupo_completo(id_distrito, nombre_grupo, nombre_comunidad, fecha_form
             cursor.execute("""
                 INSERT INTO reglamento (texto_reglamento, tipo_multa, reglas_prestamo)
                 VALUES (%s, %s, %s)
-            """, (texto_reglamento, tipo_multa, reglas_prestamo))
+            """, (texto_reglamento if texto_reglamento else '', 
+                  tipo_multa if tipo_multa else '', 
+                  reglas_prestamo if reglas_prestamo else ''))
             
             id_reglamento = cursor.lastrowid
             
@@ -301,7 +431,7 @@ def crear_grupo_completo(id_distrito, nombre_grupo, nombre_comunidad, fecha_form
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (nombre_grupo, nombre_comunidad, fecha_formacion,
                   frecuencia_reuniones, tasa_interes, metodo_reparto,
-                  meta_social, id_distrito, id_reglamento))
+                  meta_social if meta_social else '', id_distrito, id_reglamento))
             
             id_grupo = cursor.lastrowid
             
@@ -379,16 +509,23 @@ def crear_grupo_completo(id_distrito, nombre_grupo, nombre_comunidad, fecha_form
             'exito': False,
             'mensaje': f'Error inesperado: {str(e)}'
         }
+```
 
-def validar_dui(dui):
-    """Valida el formato del DUI (12345678-9)"""
-    import re
-    patron = r'^\d{8}-\d{1}$'
-    return bool(re.match(patron, dui))
+## Cambios principales:
 
-def validar_telefono(telefono):
-    """Valida el formato del teléfono salvadoreño"""
-    import re
-    # Acepta formatos: 7777-7777, 77777777, 2222-2222, 22222222
-    patron = r'^[2,6,7]\d{3}-?\d{4}$'
-    return bool(re.match(patron, telefono))
+1. ✅ **`obtener_distrito_promotora_mejorado()`**: Intenta dos métodos diferentes para obtener el distrito
+
+2. ✅ **Debugging mejorado**: Muestra información detallada del usuario, miembro y grupo cuando falla
+
+3. ✅ **Opción de respaldo**: `seleccionar_distrito_manual()` permite seleccionar el distrito de una lista completa si no se detecta automáticamente
+
+4. ✅ **Manejo de campos vacíos**: Los campos opcionales (meta_social, reglamento, etc.) se manejan correctamente con valores por defecto
+
+5. ✅ **Mejor feedback**: Mensajes más claros sobre qué está fallando
+
+Ahora cuando tengas el error:
+1. Verás un expander "🔍 Ver información de depuración" con todos los datos
+2. Aparecerá un selector manual de distritos como alternativa
+3. Podrás crear el grupo seleccionando el distrito manualmente
+
+Esto te ayudará a identificar el problema y seguir trabajando mientras lo resuelves.
