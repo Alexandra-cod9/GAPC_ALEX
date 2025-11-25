@@ -130,84 +130,6 @@ def obtener_conexion():
         return None
 
 # Función para obtener estadísticas reales
-def obtener_estadisticas_reales(id_grupo=None):
-    """Obtiene estadísticas reales de la base de datos"""
-    try:
-        conexion = obtener_conexion()
-        if conexion:
-            cursor = conexion.cursor()
-            
-            estadisticas = {}
-            
-            # Total de miembros
-            if id_grupo:
-                cursor.execute("SELECT COUNT(*) as total FROM miembrogapc WHERE id_grupo = %s", (id_grupo,))
-            else:
-                cursor.execute("SELECT COUNT(*) as total FROM miembrogapc")
-            resultado = cursor.fetchone()
-            estadisticas['total_miembros'] = resultado['total'] if resultado else 0
-            
-            # Préstamos activos (aprobados)
-            if id_grupo:
-                cursor.execute("""
-                    SELECT COUNT(*) as total 
-                    FROM prestamo p 
-                    JOIN miembrogapc m ON p.id_miembro = m.id_miembro 
-                    WHERE m.id_grupo = %s AND p.estado = 'aprobado'
-                """, (id_grupo,))
-            else:
-                cursor.execute("SELECT COUNT(*) as total FROM prestamo WHERE estado = 'aprobado'")
-            resultado = cursor.fetchone()
-            estadisticas['prestamos_activos'] = resultado['total'] if resultado else 0
-            
-            # Reuniones este mes
-            if id_grupo:
-                cursor.execute("""
-                    SELECT COUNT(*) as total 
-                    FROM reunion 
-                    WHERE id_grupo = %s 
-                    AND MONTH(fecha) = MONTH(CURDATE()) 
-                    AND YEAR(fecha) = YEAR(CURDATE())
-                """, (id_grupo,))
-            else:
-                cursor.execute("""
-                    SELECT COUNT(*) as total 
-                    FROM reunion 
-                    WHERE MONTH(fecha) = MONTH(CURDATE()) 
-                    AND YEAR(fecha) = YEAR(CURDATE())
-                """)
-            resultado = cursor.fetchone()
-            estadisticas['reuniones_mes'] = resultado['total'] if resultado else 0
-            
-            # Total de aportes (SALDO ACTUAL)
-            if id_grupo:
-                cursor.execute("""
-                    SELECT COALESCE(SUM(a.monto), 0) as total 
-                    FROM aporte a
-                    JOIN reunion r ON a.id_reunion = r.id_reunion
-                    WHERE r.id_grupo = %s
-                """, (id_grupo,))
-            else:
-                cursor.execute("""
-                    SELECT COALESCE(SUM(a.monto), 0) as total 
-                    FROM aporte a
-                    JOIN reunion r ON a.id_reunion = r.id_reunion
-                """)
-            resultado = cursor.fetchone()
-            estadisticas['saldo_actual'] = float(resultado['total']) if resultado and resultado['total'] else 0.0
-            
-            cursor.close()
-            conexion.close()
-            return estadisticas
-            
-    except Exception as e:
-        st.error(f"Error al obtener estadísticas: {e}")
-        return {
-            'total_miembros': 0,
-            'prestamos_activos': 0, 
-            'reuniones_mes': 0,
-            'saldo_actual': 0.0
-        }
 
 # FUNCIÓN PARA VERIFICAR LOGIN REAL
 def verificar_login_real(correo, contrasena):
@@ -288,4 +210,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
