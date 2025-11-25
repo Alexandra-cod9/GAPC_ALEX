@@ -28,7 +28,7 @@ def mostrar_modulo_miembros():
     with col1:
         st.markdown("# 👥 Módulo de Miembros")
     with col2:
-        if st.button("⬅️ Volver al Dashboard", use_container_width=True):
+        if st.button("⬅️ Volver", use_container_width=True):
             st.session_state.modulo_actual = 'dashboard'
             st.rerun()
     
@@ -351,3 +351,4 @@ def mostrar_formulario_edicion(miembro_id):
 def mostrar_confirmacion_eliminacion(miembro_id):
     """Muestra la confirmación para eliminar un miembro"""
     st.info("🔧 Funcionalidad de eliminación en desarrollo...")
+
