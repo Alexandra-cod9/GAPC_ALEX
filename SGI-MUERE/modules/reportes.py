@@ -476,3 +476,4 @@ def obtener_conexion():
     except Exception as e:
         st.error(f"❌ Error de conexión: {e}")
         return None
+
