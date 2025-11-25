@@ -7,28 +7,6 @@ def mostrar_dashboard_principal():
     # Obtener estadísticas reales (aunque ya no se usan en pantalla)
     estadisticas = obtener_estadisticas_reales(id_grupo_usuario)
 
-    # ----------------- SIDEBAR -------------------
-    with st.sidebar:
-        st.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
-        st.image("https://via.placeholder.com/100x30/6f42c1/white?text=GAPC", width=100)
-        st.markdown("---")
-        st.write(f"**👤 {usuario['nombre']}**")
-        st.write(f"**🎭 {usuario['tipo_rol']}**")
-        st.write(f"**🏢 Grupo #{id_grupo_usuario}**")
-
-        st.write("**🔐 Modo Real**" if 'correo' in usuario else "**🧪 Modo Prueba**")
-        st.markdown("---")
-
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🔄 Actualizar", use_container_width=True):
-                st.rerun()
-        with col2:
-            if st.button("🚪 Salir", use_container_width=True):
-                st.session_state.usuario = None
-                st.rerun()
-
-        st.markdown('</div>', unsafe_allow_html=True)
 
     # ----------------- HEADER -------------------
     st.markdown(f"""
@@ -89,3 +67,4 @@ def mostrar_dashboard_principal():
         f'<p class="compact-text">*Última actualización: {datetime.now().strftime("%d/%m/%Y %H:%M")}*</p>',
         unsafe_allow_html=True
     )
+
