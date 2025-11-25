@@ -1,6 +1,6 @@
 import streamlit as st
 from datetime import datetime
-from utils.navegacion import es_promotora
+from utils.roles import es_promotora  # ✅ Importar desde roles en lugar de navegacion
 from modules.configuracion import obtener_conexion
 
 def obtener_distrito_promotora(usuario):
@@ -96,12 +96,10 @@ def mostrar_dashboard_principal():
         with col1:
             if st.button("➕ Crear Nuevo Grupo", use_container_width=True, type="primary"):
                 st.info("🚧 Funcionalidad en desarrollo: Crear nuevo grupo")
-                # Aquí puedes agregar la lógica para crear grupo
         
         with col2:
             if st.button("📊 Reporte por Grupo", use_container_width=True, type="primary"):
                 st.info("🚧 Funcionalidad en desarrollo: Reporte por grupo")
-                # Aquí puedes agregar la lógica para mostrar reportes
         
         with col3:
             if st.button("🗺️ Ver Grupos del Distrito", use_container_width=True, type="primary"):
